@@ -1,0 +1,19 @@
+<!doctype html><html lang="da"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pakkeliste</title>
+<link rel="stylesheet" href="/static/app.css">
+<script defer src="/static/app.js"></script>
+</head><body>
+<div class="topbar">
+  <h1>🚒 Pakkeliste</h1>
+  <div class="spacer"></div>
+  {% if logged %}
+    <a class="btn small" href="/vehicles">Køretøjer</a>
+    <a class="btn small" href="/upload">Upload</a>
+    <a class="btn small" href="/logout">Log ud</a>
+  {% else %}
+    <a class="btn small" href="/login">Log ind</a>
+  {% endif %}
+</div>
+<div class="container">{% block content %}{% endblock %}</div>
+</body></html>

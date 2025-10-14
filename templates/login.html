@@ -1,0 +1,7 @@
+{% extends "base.html" %}{% block content %}
+<form method="post" action="/login" class="card" style="max-width:400px;margin:auto">
+  <h3>Log ind</h3>
+  <div class="row"><input name="username" placeholder="Brugernavn" required><input name="password" type="password" placeholder="Adgangskode" required></div>
+  <div class="row"><button class="btn" type="submit">Log ind</button></div>
+</form>
+{% endblock %}
