@@ -1,59 +1,86 @@
-{% extends "base.html" %}{% block content %}
-<h1>{{ v.name }}</h1>
+{% extends "base.html" %}
+{% block content %}
+<h2>{{ v.name }}</h2>
 
-<form id="veh-desc" method="post" action="/vehicle/{{ v.id }}/save_description" class="row gap">
-  <textarea name="description" rows="3" placeholder="Kort beskrivelse..." style="width:100%">{{ v.description }}</textarea>
-  <button class="btn" type="submit">Gem beskrivelse</button>
+{% if logged %}
+<form class="row" method="post" action="/vehicle/{{ v.id }}/place/add">
+  <input name="name" placeholder="Tilføj rum/kasse..." required>
+  <button>Tilføj rum</button>
 </form>
+{% endif %}
 
-<form method="post" action="/vehicle/{{ v.id }}/upload_doc" enctype="multipart/form-data" class="row gap">
-  <input type="file" name="file" required>
-  <button class="btn" type="submit">Upload dokument</button>
-</form>
-
-<form method="post" action="/vehicle/{{ v.id }}/add_place" class="row gap">
-  <input type="text" name="name" placeholder="Nyt rum/kasse..." required>
-  <button class="btn" type="submit">Tilføj rum</button>
-</form>
-
-<input id="local-search" type="search" placeholder="Søg i dette køretøj..." />
-
-<div id="places">
+<div class="accordion">
   {% for p in v.places %}
-  <details class="box" data-place-id="{{ p.id }}">
-    <summary>
-      <span contenteditable="true" class="place-name" data-pid="{{ p.id }}">{{ p.name }}</span>
-      <span class="badge">{{ p.items_count }} enheder</span>
-      <button class="icon btn-move" data-kind="place" data-id="{{ p.id }}" data-dir="up">▲</button>
-      <button class="icon btn-move" data-kind="place" data-id="{{ p.id }}" data-dir="down">▼</button>
+  <details>
+    <summary class="summary">
+      <b>{{ p.name }}</b>
+      <span class="tag">{{ place_counts[p.id] }} enheder</span>
+      {% if logged %}
+      <span class="actions">
+        <form method="post" action="/place/{{ p.id }}/move" class="inline">
+          <input type="hidden" name="direction" value="up"><button title="Op">▲</button>
+        </form>
+        <form method="post" action="/place/{{ p.id }}/move" class="inline">
+          <input type="hidden" name="direction" value="down"><button title="Ned">▼</button>
+        </form>
+        <form method="post" action="/place/{{ p.id }}/rename" class="inline">
+          <input name="name" value="{{ p.name }}">
+          <button>Omdøb</button>
+        </form>
+      </span>
+      {% endif %}
     </summary>
-
-    <form class="row gap add-item" onsubmit="return addItemInline(this);" data-pid="{{ p.id }}">
-      <input type="text" name="name" placeholder="Nyt udstyr..." required>
-      <input type="number" name="quantity" value="1" min="0">
-      <input type="text" name="note" placeholder="Note">
-      <button class="btn" type="submit">Tilføj</button>
-    </form>
-
-    <ul class="items" data-place="{{ p.id }}">
-      {% for it in p.items_list %}
-      <li data-item-id="{{ it.id }}">
-        <span class="it-name">{{ it.name }}</span>
-        <span class="it-qty">x{{ it.quantity }}</span>
-        {% if it.photo_path %}
-          <a href="{{ it.photo_path }}" target="_blank" title="Se billede">📷</a>
-        {% else %}
-          <form method="post" action="/item/{{ it.id }}/upload_photo" enctype="multipart/form-data" class="inline-upload">
-            <input type="file" name="file" accept="image/*" required>
-            <button class="icon" title="Upload billede">📷</button>
+    <div class="pad">
+      {% if logged %}
+      <form class="row" method="post" action="/item/add">
+        <input type="hidden" name="place_id" value="{{ p.id }}">
+        <input name="name" placeholder="Nyt udstyr..." required>
+        <input name="quantity" type="number" min="1" value="1" style="max-width:100px">
+        <input name="note" placeholder="Note">
+        <button>Tilføj</button>
+      </form>
+      {% endif %}
+      <ul class="items">
+        {% for it in p.items %}
+        <li class="item">
+          <div class="grow">
+            <div class="item-title">{{ it.name }}</div>
+            <div class="muted">Antal: {{ it.quantity }} {% if it.note %} • {{ it.note }}{% endif %}</div>
+          </div>
+          {% if logged %}
+          <form method="post" action="/item/{{ it.id }}/move" class="inline">
+            <input type="hidden" name="direction" value="up"><button title="Op">▲</button>
           </form>
-        {% endif %}
-        <button class="icon btn-move" data-kind="item" data-id="{{ it.id }}" data-dir="up">▲</button>
-        <button class="icon btn-move" data-kind="item" data-id="{{ it.id }}" data-dir="down">▼</button>
-      </li>
-      {% endfor %}
-    </ul>
+          <form method="post" action="/item/{{ it.id }}/move" class="inline">
+            <input type="hidden" name="direction" value="down"><button title="Ned">▼</button>
+          </form>
+          <form method="post" action="/item/{{ it.id }}/delete" class="inline" onsubmit="return confirm('Slette {{ it.name }}?')">
+            <button class="danger">Slet</button>
+          </form>
+          <details class="inline">
+            <summary>Redigér</summary>
+            <form method="post" action="/item/{{ it.id }}/edit" class="editform">
+              <input name="name" value="{{ it.name }}">
+              <input name="quantity" type="number" min="1" value="{{ it.quantity }}">
+              <input name="note" value="{{ it.note }}">
+              <select name="place_id">
+                {% for p2 in v.places %}
+                <option value="{{ p2.id }}" {% if p2.id == p.id %}selected{% endif %}>Flyt til: {{ p2.name }}</option>
+                {% endfor %}
+              </select>
+              <button>Gem</button>
+            </form>
+          </details>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
   </details>
   {% endfor %}
 </div>
+
+<script>
+// Luk alle som standard (mobile friendly). Browser åbner default "closed".
+</script>
 {% endblock %}

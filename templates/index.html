@@ -17,7 +17,7 @@
   {% for v in vehicles %}
   <a class="card linkcard" href="/vehicle/{{ v.id }}">
     <h3>{{ v.name }}</h3>
-    <div class="meta">{{ v.place_count }} rum</div>
+    <div class="meta">{{ v.places|length }} rum</div>
     <ul class="mini">
       {% for p in v.places[:4] %}
         <li>{{ p.name }} <span class="tag">{{ place_counts[p.id] }}</span></li>
