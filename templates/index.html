@@ -1,29 +1,15 @@
-{% extends "base.html" %}
-{% block content %}
-<section class="card">
-  <form action="/search" method="get" class="searchbar">
-    <input name="q" placeholder="Søg i alt udstyr..." autofocus value="{{ request.query_params.get('q','') }}">
-    <select name="vehicle">
-      <option value="0">Alle køretøjer</option>
-      {% for v in vehicles %}
-        <option value="{{ v.id }}">{{ v.name }}</option>
-      {% endfor %}
-    </select>
-    <button>Søg</button>
-  </form>
-</section>
-
-<section class="grid">
+{% extends "base.html" %}{% block content %}
+<h2>Oversigt</h2>
+<div class="grid cards">
   {% for v in vehicles %}
-  <a class="card linkcard" href="/vehicle/{{ v.id }}">
-    <h3>{{ v.name }}</h3>
-    <div class="meta">{{ v.places|length }} rum</div>
-    <ul class="mini">
-      {% for p in v.places[:4] %}
-        <li>{{ p.name }} <span class="tag">{{ place_counts[p.id] }}</span></li>
-      {% endfor %}
-    </ul>
-  </a>
+    <div class="card">
+      <div class="row" style="justify-content:space-between">
+        <a href="/vehicle/{{ v.id }}"><strong style="font-size:1.1rem">{{ v.name }}</strong></a>
+        <span class="badge">{{ v.place_count }} rum</span>
+      </div>
+    </div>
+  {% else %}
+    <p class="small">Ingen køretøjer endnu.</p>
   {% endfor %}
-</section>
+</div>
 {% endblock %}

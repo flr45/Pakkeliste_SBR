@@ -1,9 +1,8 @@
 {% extends "base.html" %}{% block content %}
-<div class="card" style="max-width:700px;margin:auto">
-  <h3>Upload CSV pakkelister</h3>
-  <p class="tag">Header: <span class="mono">Brandbil,Rum/Låge,Udstyr,Antal,Note</span> eller <span class="mono">Rum/Låge,Udstyr,Antal,Note</span>.</p>
-  <form method="post" action="/upload" enctype="multipart/form-data">
-    <div class="row"><input type="file" name="file" required><button class="btn">Importer</button></div>
-  </form>
-</div>
+<h2>Upload CSV (valgfrit)</h2>
+<form method="post" enctype="multipart/form-data" class="card grid" style="max-width:520px">
+  <input class="input" type="file" name="file" accept=".csv" required>
+  <button class="btn">Importér</button>
+</form>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
 {% endblock %}

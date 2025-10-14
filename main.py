@@ -1,444 +1,216 @@
 
-import os
-from typing import Optional, List, Dict
-
-from fastapi import FastAPI, Request, Form, UploadFile, File, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
+import os, csv, io, datetime
+from fastapi import FastAPI, Request, Form, UploadFile, File
+from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-
+from sqlalchemy import create_engine, select, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
 from starlette.middleware.sessions import SessionMiddleware
 
-from sqlalchemy import create_engine, select, func, text, Column, Integer, String, ForeignKey
-from sqlalchemy.orm import Session, sessionmaker, declarative_base, relationship, joinedload, selectinload
-
-# ------------------ Config ------------------
-DB_PATH = os.environ.get("DB_PATH", "app.db")
-SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin")
+os.makedirs("uploads/vehicle_docs", exist_ok=True)
+os.makedirs("uploads/items", exist_ok=True)
+os.makedirs("static", exist_ok=True)
 
 app = FastAPI()
-
-# Ensure uploads dir exists on boot
-os.makedirs('uploads', exist_ok=True)
-app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, same_site="lax")
-
+app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY","dev-secret"))
 app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 
-engine = create_engine(f"sqlite:///{DB_PATH}", future=True, echo=False, connect_args={"check_same_thread": False})
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-
-Base = declarative_base()
-
-# ------------------ Models ------------------
+class Base(DeclarativeBase): pass
+engine = create_engine("sqlite:///data.db", echo=False)
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    sort = Column(Integer, default=0, nullable=False)
-    description = Column(String, default="", nullable=False)
-
-    places = relationship(
-        "Place",
-        back_populates="vehicle",
-        cascade="all, delete-orphan",
-        order_by="Place.sort",
-    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
+    places: Mapped[list["Place"]] = relationship(back_populates="vehicle", order_by="Place.sort", cascade="all, delete-orphan")
+    docs: Mapped[list["VehicleDoc"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan")
 
 class Place(Base):
     __tablename__ = "places"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False)
-    sort = Column(Integer, default=0, nullable=False)
-
-    vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False, index=True)
-    vehicle = relationship("Vehicle", back_populates="places")
-
-    items = relationship(
-        "Item",
-        back_populates="place",
-        cascade="all, delete-orphan",
-        order_by="Item.sort",
-    )
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(200))
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    vehicle: Mapped[Vehicle] = relationship(back_populates="places")
+    items: Mapped[list["Item"]] = relationship(back_populates="place", order_by="Item.name", cascade="all, delete-orphan")
 
 class Item(Base):
     __tablename__ = "items"
-    id = Column(Integer, primary_key=True)
-    name = Column(String, nullable=False, index=True)
-    quantity = Column(Integer, default=1, nullable=False)
-    note = Column(String, default="", nullable=False)
-    sort = Column(Integer, default=0, nullable=False)
-    photo_path = Column(String, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    place_id: Mapped[int] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"))
+    name: Mapped[str] = mapped_column(String(300))
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    note: Mapped[str | None] = mapped_column(Text, default=None)
+    photo_filename: Mapped[str | None] = mapped_column(String(255), default=None)
+    place: Mapped[Place] = relationship(back_populates="items")
 
-    place_id = Column(Integer, ForeignKey("places.id"), nullable=False, index=True)
-    place = relationship("Place", back_populates="items")
-
-# ------------------ DB bootstrapping ------------------
-
-def ensure_columns(engine):
-    # add missing columns for existing dbs
-    with engine.begin() as conn:
-        # vehicles
-        vcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(vehicles)").fetchall()]
-        if "sort" not in vcols:
-            conn.exec_driver_sql("ALTER TABLE vehicles ADD COLUMN sort INTEGER DEFAULT 0")
-        if "description" not in vcols:
-            conn.exec_driver_sql("ALTER TABLE vehicles ADD COLUMN description TEXT DEFAULT ''")
-
-        # places
-        pcols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(places)").fetchall()]
-        if "sort" not in pcols:
-            conn.exec_driver_sql("ALTER TABLE places ADD COLUMN sort INTEGER DEFAULT 0")
-        if "vehicle_id" not in pcols:
-            conn.exec_driver_sql("ALTER TABLE places ADD COLUMN vehicle_id INTEGER")
-            vid = conn.execute(text("SELECT id FROM vehicles ORDER BY id LIMIT 1")).scalar()
-            if vid is None:
-                conn.exec_driver_sql("INSERT INTO vehicles (name, sort, description) VALUES ('Ukendt', 0, '')")
-                vid = conn.execute(text("SELECT id FROM vehicles ORDER BY id LIMIT 1")).scalar()
-            conn.execute(text("UPDATE places SET vehicle_id = :vid WHERE vehicle_id IS NULL"), {"vid": vid})
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_places_vehicle_id ON places(vehicle_id)")
-
-        # items
-        icols = [r[1] for r in conn.exec_driver_sql("PRAGMA table_info(items)").fetchall()]
-        if "quantity" not in icols:
-            conn.exec_driver_sql("ALTER TABLE items ADD COLUMN quantity INTEGER DEFAULT 1")
-        if "sort" not in icols:
-            conn.exec_driver_sql("ALTER TABLE items ADD COLUMN sort INTEGER DEFAULT 0")
-        if "photo_path" not in icols:
-            conn.exec_driver_sql("ALTER TABLE items ADD COLUMN photo_path TEXT")
-        if "place_id" not in icols:
-            conn.exec_driver_sql("ALTER TABLE items ADD COLUMN place_id INTEGER")
-            # Fallback place
-            pid = conn.execute(text("SELECT id FROM places ORDER BY id LIMIT 1")).scalar()
-            if pid is None:
-                vid = conn.execute(text("SELECT id FROM vehicles ORDER BY id LIMIT 1")).scalar()
-                if vid is None:
-                    conn.exec_driver_sql("INSERT INTO vehicles (name, sort, description) VALUES ('Ukendt', 0, '')")
-                    vid = conn.execute(text("SELECT id FROM vehicles ORDER BY id LIMIT 1")).scalar()
-                conn.exec_driver_sql("INSERT INTO places (name, sort, vehicle_id) VALUES ('Ukendt rum', 0, ?)", (vid,))
-                pid = conn.execute(text("SELECT id FROM places ORDER BY id LIMIT 1")).scalar()
-            conn.execute(text("UPDATE items SET place_id = :pid WHERE place_id IS NULL"), {"pid": pid})
-            conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_items_place_id ON items(place_id)")
+class VehicleDoc(Base):
+    __tablename__ = "vehicle_docs"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"))
+    filename: Mapped[str] = mapped_column(String(255))
+    orig_name: Mapped[str] = mapped_column(String(255))
+    uploaded_at: Mapped[str] = mapped_column(String(32))
+    vehicle: Mapped[Vehicle] = relationship(back_populates="docs")
 
 Base.metadata.create_all(engine)
-ensure_columns(engine)
 
-# ------------------ Helpers ------------------
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-def is_logged_in(request: Request) -> bool:
-    return bool(request.session.get("user"))
-
-def require_login(request: Request):
-    if not is_logged_in(request):
-        return RedirectResponse("/login?next=" + request.url.path, status_code=303)
-
-def norm(s: str) -> str:
-    # Normaliser søgetermer: fjern bindestreger/underscores, komprimer whitespace, lower-case
-    return "".join(ch for ch in s.lower().strip() if ch.isalnum() or ch.isspace())
-
-# ------------------ Routes ------------------
+def is_logged(request: Request)->bool:
+    return request.session.get("auth")==1
 
 @app.get("/", response_class=HTMLResponse)
-def home(request: Request, db: Session = Depends(get_db)):
-    vehicles = db.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
-    # Precompute place_counts
-    place_counts: Dict[int, int] = {}
-    for v in vehicles:
-        for p in v.places:
-            place_counts[p.id] = db.scalar(select(func.count(Item.id)).where(Item.place_id == p.id)) or 0
-    return templates.TemplateResponse("index.html", {
-        "request": request,
-        "vehicles": vehicles,
-        "place_counts": place_counts,
-        "logged": is_logged_in(request),
-        "msg": request.query_params.get("msg", "")
-    })
-
-# ---- Auth ----
+def home(request: Request):
+    with Session(engine) as s:
+        rows = s.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
+        data = [{"id":v.id,"name":v.name,"place_count":len(v.places)} for v in rows]
+    return templates.TemplateResponse("index.html", {"request": request, "vehicles": data, "logged": is_logged(request)})
 
 @app.get("/login", response_class=HTMLResponse)
-def login_form(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request, "msg": request.query_params.get("msg","")})
+def login_page(request: Request, msg: str | None = None):
+    return templates.TemplateResponse("login.html", {"request":request, "msg":msg})
 
 @app.post("/login")
-def login(request: Request, username: str = Form(...), password: str = Form(...), next: str = Form("/", alias="next")):
-    if username == ADMIN_USER and password == ADMIN_PASS:
-        request.session["user"] = username
-        return RedirectResponse(next or "/", status_code=303)
-    return templates.TemplateResponse("login.html", {"request": request, "msg":"Forkert login"})
+def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
+    u = os.getenv("ADMIN_USER","admin"); p = os.getenv("ADMIN_PASSWORD","admin")
+    if username == u and password == p:
+        request.session["auth"]=1; return RedirectResponse("/", status_code=303)
+    return RedirectResponse("/login?msg=Forkert+login", status_code=303)
 
 @app.get("/logout")
 def logout(request: Request):
-    request.session.clear()
-    return RedirectResponse("/?msg=Logget ud", status_code=303)
-
-# ---- Vehicles CRUD ----
-
-@app.get("/vehicles", response_class=HTMLResponse)
-def vehicle_list(request: Request, db: Session = Depends(get_db)):
-    vehicles = db.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
-    return templates.TemplateResponse("vehicles.html", {"request":request, "vehicles":vehicles, "logged":is_logged_in(request)})
-
-@app.post("/vehicles")
-def vehicle_create(request: Request, name: str = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    v = Vehicle(name=name.strip())
-    db.add(v)
-    db.commit()
-    return RedirectResponse("/vehicles", status_code=303)
-
-@app.post("/vehicle/{vehicle_id}/delete")
-def vehicle_delete(request: Request, vehicle_id: int, db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    v = db.get(Vehicle, vehicle_id)
-    if v:
-        db.delete(v)
-        db.commit()
-    return RedirectResponse("/?msg=Køretøj slettet", status_code=303)
-
-# ---- Vehicle detail & Places/Items ----
-
-@app.get("/vehicle/{vehicle_id}", response_class=HTMLResponse)
-def vehicle_detail(request: Request, vehicle_id: int, db: Session = Depends(get_db)):
-    # eager load places and items (ordered by sort)
-    v: Optional[Vehicle] = db.execute(
-        select(Vehicle)
-        .options(joinedload(Vehicle.places).joinedload(Place.items))
-        .where(Vehicle.id == vehicle_id)
-    ).scalars().first()
-    if not v:
-        return RedirectResponse("/?msg=Køretøj findes ikke", status_code=303)
-
-    # precompute place_counts
-    place_counts = {p.id: len(p.items) for p in v.places}
-    return templates.TemplateResponse("vehicle.html", {
-        "request": request, "v": v, "place_counts": place_counts, "logged": is_logged_in(request)
-    })
-
-@app.post("/vehicle/{vehicle_id}/place/add")
-def place_add(request: Request, vehicle_id: int, name: str = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    v = db.get(Vehicle, vehicle_id)
-    if not v:
-        return RedirectResponse("/?msg=Køretøj findes ikke", status_code=303)
-    max_sort = db.scalar(select(func.coalesce(func.max(Place.sort), 0)).where(Place.vehicle_id == vehicle_id)) or 0
-    p = Place(name=name.strip(), vehicle_id=vehicle_id, sort=max_sort+1)
-    db.add(p)
-    db.commit()
-    return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
-
-@app.post("/place/{place_id}/rename")
-def place_rename(request: Request, place_id: int, name: str = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    p = db.get(Place, place_id)
-    if p:
-        p.name = name.strip()
-        db.commit()
-        return RedirectResponse(f"/vehicle/{p.vehicle_id}", status_code=303)
-    return RedirectResponse("/", status_code=303)
-
-@app.post("/place/{place_id}/move")
-def place_move(request: Request, place_id: int, direction: str = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    p = db.get(Place, place_id)
-    if not p:
-        return RedirectResponse("/", status_code=303)
-    delta = -1 if direction == "up" else 1
-    neighbor = db.execute(
-        select(Place).where(Place.vehicle_id == p.vehicle_id, Place.sort == p.sort + delta)
-    ).scalars().first()
-    if neighbor:
-        neighbor.sort, p.sort = p.sort, neighbor.sort
-        db.commit()
-    return RedirectResponse(f"/vehicle/{p.vehicle_id}", status_code=303)
-
-@app.post("/item/add")
-def item_add(request: Request, place_id: int = Form(...), name: str = Form(...), quantity: int = Form(1), note: str = Form(""), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    max_sort = db.scalar(select(func.coalesce(func.max(Item.sort), 0)).where(Item.place_id == place_id)) or 0
-    it = Item(place_id=place_id, name=name.strip(), quantity=quantity, note=note.strip(), sort=max_sort+1)
-    db.add(it)
-    db.commit()
-    v_id = db.scalar(select(Place.vehicle_id).where(Place.id == place_id))
-    return RedirectResponse(f"/vehicle/{v_id}", status_code=303)
-
-@app.post("/item/{item_id}/edit")
-def item_edit(request: Request, item_id: int, name: str = Form(...), quantity: int = Form(1), note: str = Form(""), place_id: int = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    it = db.get(Item, item_id)
-    if it:
-        it.name = name.strip()
-        it.quantity = quantity
-        it.note = note.strip()
-        # flyt mellem kasser
-        it.place_id = place_id
-        db.commit()
-        v_id = db.scalar(select(Place.vehicle_id).where(Place.id == it.place_id))
-        return RedirectResponse(f"/vehicle/{v_id}", status_code=303)
-    return RedirectResponse("/", status_code=303)
-
-@app.post("/item/{item_id}/move")
-def item_move(request: Request, item_id: int, direction: str = Form(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    it = db.get(Item, item_id)
-    if not it:
-        return RedirectResponse("/", status_code=303)
-    delta = -1 if direction == "up" else 1
-    neighbor = db.execute(
-        select(Item).where(Item.place_id == it.place_id, Item.sort == it.sort + delta)
-    ).scalars().first()
-    if neighbor:
-        neighbor.sort, it.sort = it.sort, neighbor.sort
-        db.commit()
-    v_id = db.scalar(select(Place.vehicle_id).where(Place.id == it.place_id))
-    return RedirectResponse(f"/vehicle/{v_id}", status_code=303)
-
-@app.post("/item/{item_id}/delete")
-def item_delete(request: Request, item_id: int, db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    it = db.get(Item, item_id)
-    if it:
-        v_id = db.scalar(select(Place.vehicle_id).where(Place.id == it.place_id))
-        db.delete(it)
-        db.commit()
-        return RedirectResponse(f"/vehicle/{v_id}", status_code=303)
-    return RedirectResponse("/", status_code=303)
-
-# ---- Upload CSV ----
-
-@app.get("/import", response_class=HTMLResponse)
-def import_form(request: Request):
-    return templates.TemplateResponse("import.html", {"request":request, "logged":is_logged_in(request), "msg": request.query_params.get("msg","")})
-
-@app.post("/import")
-async def import_csv(request: Request, file: UploadFile = File(...), db: Session = Depends(get_db)):
-    if not is_logged_in(request):
-        return require_login(request)
-    import csv, io
-    content = await file.read()
-    text_data = content.decode("utf-8-sig")
-    reader = csv.reader(io.StringIO(text_data), delimiter=",")
-    rows = list(reader)
-    if not rows:
-        return RedirectResponse("/import?msg=Tom fil", status_code=303)
-
-    header = [h.strip().lower() for h in rows[0]]
-    # to header variants
-    expected1 = ["brandbil","rum/låge","udstyr","antal","note"]
-    expected2 = ["rum/låge","udstyr","antal","note"]
-
-    start_idx = 1
-    vehicle_name = None
-    if header == expected1:
-        vehicle_name = rows[1][0].strip()
-        start_idx = 1
-    elif header == expected2:
-        vehicle_name = "Import " + os.path.splitext(file.filename)[0]
-        start_idx = 1
-    else:
-        return RedirectResponse("/import?msg=Forkert header. Forventede 'Brandbil,Rum/Låge,Udstyr,Antal,Note' eller 'Rum/Låge,Udstyr,Antal,Note'.", status_code=303)
-
-    # find or create vehicle
-    v = db.execute(select(Vehicle).where(func.lower(Vehicle.name) == vehicle_name.lower())).scalars().first()
-    if not v:
-        v = Vehicle(name=vehicle_name)
-        db.add(v)
-        db.commit()
-        db.refresh(v)
-
-    # clear existing places/items on that vehicle
-    for p in list(v.places):
-        db.delete(p)
-    db.commit()
-
-    # group by place name
-    place_map: Dict[str, Place] = {}
-    for r in rows[start_idx:]:
-        if not r or len(r) < len(header):
-            continue
-        # map fields
-        if header == expected1:
-            place_name, item_name, qty, note = r[1].strip(), r[2].strip(), r[3].strip() or "1", (r[4].strip() if len(r) > 4 else "")
-        else:
-            place_name, item_name, qty, note = r[0].strip(), r[1].strip(), r[2].strip() or "1", (r[3].strip() if len(r) > 3 else "")
-
-        if not place_name:
-            place_name = "Ukendt"
-        if place_name not in place_map:
-            max_sort = db.scalar(select(func.coalesce(func.max(Place.sort), 0)).where(Place.vehicle_id == v.id)) or 0
-            p = Place(name=place_name, vehicle_id=v.id, sort=max_sort+1)
-            db.add(p)
-            db.commit()
-            db.refresh(p)
-            place_map[place_name] = p
-        else:
-            p = place_map[place_name]
-
-        try:
-            qty_int = int(qty)
-        except:
-            qty_int = 1
-        max_isort = db.scalar(select(func.coalesce(func.max(Item.sort), 0)).where(Item.place_id == p.id)) or 0
-        it = Item(place_id=p.id, name=item_name, quantity=qty_int, note=note, sort=max_isort+1)
-        db.add(it)
-        db.commit()
-
-    return RedirectResponse(f"/vehicle/{v.id}?msg=Import OK", status_code=303)
-
-# ---- Search ----
+    request.session.clear(); return RedirectResponse("/", status_code=303)
 
 @app.get("/search", response_class=HTMLResponse)
-def search(request: Request, q: str = "", vehicle: int = 0, db: Session = Depends(get_db)):
-    qn = norm(q)
-    vehicles = db.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
-    rows = []
-    if qn:
-        stmt = (
-            select(Item, Place, Vehicle)
-            .join(Place, Item.place_id == Place.id)
-            .join(Vehicle, Place.vehicle_id == Vehicle.id)
-            .order_by(Vehicle.name, Place.name, Item.name)
-        )
-        results = db.execute(stmt).all()
-        # Filter in Python to support our normalization and token search
-        tokens = [t for t in qn.split() if t]
-        for it, pl, ve in results:
-            hay = norm(it.name) + " " + norm(pl.name) + " " + norm(ve.name)
-            if all(t in hay for t in tokens):
-                rows.append((it, pl, ve))
+def global_search(request: Request, q: str | None = None):
+    results = []
+    if q:
+        term = f"%{q.lower()}%"
+        with Session(engine) as s:
+            rows = s.execute(
+                select(Item, Place, Vehicle)
+                .join(Place, Item.place_id == Place.id)
+                .join(Vehicle, Place.vehicle_id == Vehicle.id)
+                .where((Item.name.ilike(term)) | (Item.note.ilike(term)))
+                .order_by(Vehicle.name, Place.name, Item.name)
+            ).all()
+            for it, pl, ve in rows:
+                results.append({
+                    "vehicle_id": ve.id, "vehicle_name": ve.name,
+                    "place_id": pl.id, "place_name": pl.name,
+                    "item_id": it.id, "item_name": it.name, "quantity": it.quantity
+                })
+    return templates.TemplateResponse("search.html", {"request":request, "q":q, "results":results, "logged": is_logged(request)})
 
-        # deduplicate by item id+place id (avoid double if eager loads)
-        seen = set()
-        unique = []
-        for it, pl, ve in rows:
-            key = (it.id, pl.id)
-            if key not in seen:
-                seen.add(key)
-                unique.append((it, pl, ve))
-        rows = unique
+@app.get("/vehicle/{vehicle_id}", response_class=HTMLResponse)
+def vehicle_detail(request: Request, vehicle_id: int):
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v:
+            return RedirectResponse("/", status_code=303)
+        places = []
+        for p in v.places:
+            items = [{"id":i.id,"name":i.name,"quantity":i.quantity,"note":i.note,"photo_filename":i.photo_filename} for i in p.items]
+            places.append({"id":p.id,"name":p.name,"items":items})
+        docs = [{"id":d.id,"orig_name":d.orig_name} for d in v.docs]
+        data = {"id":v.id,"name":v.name,"description":v.description,"places":places}
+    return templates.TemplateResponse("vehicle.html", {"request":request, "v":data, "docs":docs, "logged":is_logged(request)})
 
-        # vehicle filter
-        if vehicle and str(vehicle).isdigit():
-            rows = [r for r in rows if r[2].id == int(vehicle)]
-    return templates.TemplateResponse("search.html", {
-        "request": request, "rows": rows, "q": q, "vehicle": vehicle, "vehicles": vehicles, "logged": is_logged_in(request)
-    })
+@app.get("/vehicle/{vehicle_id}/export")
+def export_vehicle(vehicle_id: int):
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v: 
+            return RedirectResponse("/", status_code=303)
+        output = io.StringIO()
+        w = csv.writer(output)
+        w.writerow(["Køretøj","Rum","Udstyr","Antal","Note"])
+        for p in v.places:
+            for i in p.items:
+                w.writerow([v.name, p.name, i.name, i.quantity, i.note or ""])
+        output.seek(0)
+        return StreamingResponse(iter([output.read()]), media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{v.name}_pakkeliste.csv"'} )
+
+@app.post("/vehicle/{vehicle_id}/description")
+def set_description(vehicle_id: int, description: str = Form("")):
+    with Session(engine) as s:
+        v = s.get(Vehicle, vehicle_id)
+        if v:
+            v.description = description.strip()
+            s.commit()
+    return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
+
+@app.post("/vehicle/{vehicle_id}/upload_doc")
+def upload_doc(vehicle_id: int, file: UploadFile = File(...)):
+    filename = f"{vehicle_id}_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}"
+    path = os.path.join("uploads","vehicle_docs",filename)
+    with open(path,"wb") as f:
+        f.write(file.file.read())
+    with Session(engine) as s:
+        d = VehicleDoc(vehicle_id=vehicle_id, filename=filename, orig_name=file.filename, uploaded_at=datetime.datetime.utcnow().isoformat())
+        s.add(d); s.commit()
+    return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
+
+from fastapi import Response
+@app.get("/vehicle/{vehicle_id}/doc/{doc_id}/download")
+def download_doc(vehicle_id: int, doc_id: int):
+    with Session(engine) as s:
+        d = s.get(VehicleDoc, doc_id)
+        if not d or d.vehicle_id != vehicle_id:
+            return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
+        path = os.path.join("uploads","vehicle_docs", d.filename)
+        return StreamingResponse(open(path,"rb"), media_type="application/octet-stream", 
+            headers={"Content-Disposition": f'attachment; filename="{d.orig_name}"'})
+
+@app.post("/item/{item_id}/upload_photo")
+def upload_item_photo(item_id: int, photo: UploadFile = File(...)):
+    ext = os.path.splitext(photo.filename)[1].lower() or ".bin"
+    filename = f"item_{item_id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
+    path = os.path.join("uploads","items", filename)
+    with open(path,"wb") as f:
+        f.write(photo.file.read())
+    with Session(engine) as s:
+        it = s.get(Item, item_id)
+        if it:
+            it.photo_filename = filename
+            s.commit()
+            vehicle_id = it.place.vehicle_id if it.place else 0
+    if vehicle_id:
+        return RedirectResponse(f"/vehicle/{vehicle_id}?open_place={it.place_id}&highlight_item={it.id}", status_code=303)
+    return RedirectResponse("/", status_code=303)
+
+@app.get("/upload", response_class=HTMLResponse)
+def upload_page(request: Request, msg: str | None = None):
+    return templates.TemplateResponse("upload.html", {"request":request, "msg":msg, "logged": is_logged(request)})
+
+@app.post("/upload")
+def upload_csv(file: UploadFile = File(...)):
+    content = file.file.read().decode("utf-8", errors="ignore")
+    reader = csv.DictReader(io.StringIO(content))
+    with Session(engine) as s:
+        cache_v = {}; cache_p = {}
+        for row in reader:
+            vname = (row.get("Vehicle") or row.get("Køretøj") or "").strip()
+            pname = (row.get("Place") or row.get("Rum") or "").strip()
+            iname = (row.get("Item") or row.get("Udstyr") or "").strip()
+            qty = int((row.get("Quantity") or row.get("Antal") or "1") or "1")
+            note = (row.get("Note") or "").strip() or None
+            if not vname or not pname or not iname: 
+                continue
+            vobj = cache_v.get(vname) or s.execute(select(Vehicle).where(Vehicle.name==vname)).scalar_one_or_none()
+            if not vobj:
+                vobj = Vehicle(name=vname, sort=0); s.add(vobj); s.flush()
+            cache_v[vname] = vobj
+            pkey = (vobj.id, pname)
+            pobj = cache_p.get(pkey) or s.execute(select(Place).where(Place.vehicle_id==vobj.id, Place.name==pname)).scalar_one_or_none()
+            if not pobj:
+                pobj = Place(vehicle_id=vobj.id, name=pname, sort=0); s.add(pobj); s.flush()
+            cache_p[pkey] = pobj
+            s.add(Item(place_id=pobj.id, name=iname, quantity=qty, note=note))
+        s.commit()
+    return RedirectResponse("/?msg=Import+ok", status_code=303)

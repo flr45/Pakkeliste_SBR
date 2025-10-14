@@ -1,11 +1,9 @@
-{% extends "base.html" %}
-{% block content %}
+{% extends "base.html" %}{% block content %}
 <h2>Log ind</h2>
-<form method="post" action="/login" class="card">
-  <input name="username" placeholder="Brugernavn" required>
-  <input name="password" type="password" placeholder="Adgangskode" required>
-  <input type="hidden" name="next" value="{{ request.query_params.get('next','/') }}">
-  <button>Log ind</button>
-  {% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+<form method="post" class="card grid" style="max-width:420px">
+  <input class="input" required name="username" placeholder="Brugernavn">
+  <input class="input" required type="password" name="password" placeholder="Adgangskode">
+  <button class="btn">Log ind</button>
 </form>
+{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
 {% endblock %}

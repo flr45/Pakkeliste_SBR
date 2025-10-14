@@ -1,37 +1,33 @@
-{% set dark = true %}
+{% set title = title or "Pakkelister" %}
 <!doctype html>
 <html lang="da">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Pakkelister</title>
-  <link rel="stylesheet" href="/static/app.css">
-  <script defer src="/static/app.js"></script>
-</head>
-<body>
-<header class="topbar">
-  <a href="/" class="brand">🚒 Pakkelister</a>
-  <nav class="nav">
-    <a href="/">Forside</a>
-    <a href="/vehicles">Køretøjer</a>
-    <a href="/import">Upload CSV</a>
-  </nav>
-  <div class="auth">
-    {% if logged %}
-      <a href="/logout" class="btn">Log ud</a>
-    {% else %}
-      <a href="/login" class="btn">Log ind</a>
-    {% endif %}
-  </div>
-</header>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{ title }}</title>
+    <link rel="stylesheet" href="/static/app.css">
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <a href="/" class="row"><strong>🚒 Pakkelister</strong></a>
+        <div class="row">
+          <form method="get" action="/search" class="row">
+            <input class="input" name="q" placeholder="Søg i alt udstyr…" style="min-width:260px">
+            <button class="btn">Søg</button>
+          </form>
+          {% if logged %}
+            <a class="btn secondary" href="/logout">Log ud</a>
+          {% else %}
+            <a class="btn secondary" href="/login">Log ind</a>
+          {% endif %}
+        </div>
+      </div>
 
-<main class="container">
-  {% if msg %}
-    <div class="flash">{{ msg }}</div>
-  {% endif %}
-  {% block content %}{% endblock %}
-</main>
+      <div class="container">{% block content %}{% endblock %}</div>
 
-<footer class="footer">© Pakkelister</footer>
-</body>
+      <div class="footer">© Pakkelister</div>
+    </div>
+    <script src="/static/app.js"></script>
+  </body>
 </html>
