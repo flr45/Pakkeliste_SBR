@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Køretøjer</h2>
+<form method="post" action="/vehicles" class="row">
+  <input name="name" placeholder="Nyt køretøj..." required>
+  <button>Tilføj</button>
+</form>
+<div class="grid">
+  {% for v in vehicles %}
+  <div class="card">
+    <h3><a href="/vehicle/{{ v.id }}">{{ v.name }}</a></h3>
+    {% if logged %}
+    <form method="post" action="/vehicle/{{ v.id }}/delete" onsubmit="return confirm('Slette {{ v.name }}?');">
+      <button class="danger">Slet</button>
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

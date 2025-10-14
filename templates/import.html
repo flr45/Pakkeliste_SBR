@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Upload CSV</h2>
+<p>Understøttede headers: <code>Brandbil,Rum/Låge,Udstyr,Antal,Note</code> eller <code>Rum/Låge,Udstyr,Antal,Note</code></p>
+<form method="post" enctype="multipart/form-data" class="card">
+  <input type="file" name="file" accept=".csv" required>
+  <button>Upload</button>
+</form>
+{% if msg %}<div class="flash">{{ msg }}</div>{% endif %}
+{% endblock %}

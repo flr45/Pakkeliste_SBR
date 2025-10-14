@@ -1,22 +1,30 @@
-{% extends "base.html" %}{% block content %}
-<form action="/search" method="get" class="card">
-  <div class="search-row">
-    <input type="text" name="q" placeholder="Søg efter udstyr…" value="{{ q or '' }}" style="flex:1">
-    <select name="vehicle"><option value="0">Alle køretøjer</option>
-      {% for v in vehicles %}<option value="{{ v.id }}" {% if vehicle_filter and vehicle_filter == v.id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
-    </select>
-    <button class="btn">Søg</button>
-  </div>
+{% extends "base.html" %}
+{% block content %}
+<h2>Søg</h2>
+<form action="/search" method="get" class="searchbar card">
+  <input name="q" placeholder="Søg efter udstyr..." value="{{ q }}">
+  <select name="vehicle">
+    <option value="0" {% if not vehicle %}selected{% endif %}>Alle køretøjer</option>
+    {% for v in vehicles %}
+      <option value="{{ v.id }}" {% if vehicle|int == v.id %}selected{% endif %}>{{ v.name }}</option>
+    {% endfor %}
+  </select>
+  <button>Søg</button>
 </form>
-<div class="card"><h3>Resultater</h3>
-  {% for r in results %}
-  <div class="item">
-    <div class="left">
-      <span class="icon" style="visibility:{% if r.photo_path %}visible{% else %}hidden{% endif %}">📷</span>
-      <div><div><b>{{ r.item_name }}</b> — <span class="tag">{{ r.place_name }}</span></div><div class="tag">{{ r.vehicle_name }}</div></div>
+
+<ul class="results">
+  {% for it, pl, ve in rows %}
+  <li class="card">
+    <div class="row space">
+      <div class="grow">
+        <div class="item-title">{{ it.name }}</div>
+        <div class="muted">{{ ve.name }} • {{ pl.name }} • Antal: {{ it.quantity }} {% if it.note %}• {{ it.note }}{% endif %}</div>
+      </div>
+      <a class="btn" href="/vehicle/{{ ve.id }}">Åbn</a>
     </div>
-    <a class="btn small" href="/vehicle/{{ r.vehicle_id }}">Åbn</a>
-  </div>
-  {% else %}<div class="tag">Ingen match.</div>{% endfor %}
-</div>
+  </li>
+  {% else %}
+    {% if q %}<p class="muted">Ingen resultater.</p>{% endif %}
+  {% endfor %}
+</ul>
 {% endblock %}

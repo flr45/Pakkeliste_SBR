@@ -1,20 +1,29 @@
-{% extends "base.html" %}{% block content %}
-<form action="/search" method="get" class="card">
-  <div class="search-row">
-    <input type="text" name="q" placeholder="Søg efter udstyr…" value="{{ q or '' }}" style="flex:1">
-    <select name="vehicle"><option value="0">Alle køretøjer</option>
-      {% for v in vehicles %}<option value="{{ v.id }}" {% if vehicle_filter and vehicle_filter == v.id %}selected{% endif %}>{{ v.name }}</option>{% endfor %}
+{% extends "base.html" %}
+{% block content %}
+<section class="card">
+  <form action="/search" method="get" class="searchbar">
+    <input name="q" placeholder="Søg i alt udstyr..." autofocus value="{{ request.query_params.get('q','') }}">
+    <select name="vehicle">
+      <option value="0">Alle køretøjer</option>
+      {% for v in vehicles %}
+        <option value="{{ v.id }}">{{ v.name }}</option>
+      {% endfor %}
     </select>
-    <button class="btn">Søg</button>
-  </div>
-</form>
-<h3>Køretøjer</h3>
-<div class="grid">
+    <button>Søg</button>
+  </form>
+</section>
+
+<section class="grid">
   {% for v in vehicles %}
-  <div class="vehicle">
-    <div class="title"><a href="/vehicle/{{ v.id }}">{{ v.name }}</a><span class="tag">{{ v.place_count }} rum</span></div>
-    {% if v.description %}<div class="tag" style="display:block;margin-top:6px">{{ v.description|truncate(140) }}</div>{% endif %}
-  </div>
-  {% else %}<div class="card">Ingen køretøjer endnu.</div>{% endfor %}
-</div>
+  <a class="card linkcard" href="/vehicle/{{ v.id }}">
+    <h3>{{ v.name }}</h3>
+    <div class="meta">{{ v.place_count }} rum</div>
+    <ul class="mini">
+      {% for p in v.places[:4] %}
+        <li>{{ p.name }} <span class="tag">{{ place_counts[p.id] }}</span></li>
+      {% endfor %}
+    </ul>
+  </a>
+  {% endfor %}
+</section>
 {% endblock %}
