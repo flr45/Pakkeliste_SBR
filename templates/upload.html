@@ -1,8 +1,13 @@
-{% extends "base.html" %}{% block content %}
-<h2>Upload CSV (valgfrit)</h2>
-<form method="post" enctype="multipart/form-data" class="card grid" style="max-width:520px">
-  <input class="input" type="file" name="file" accept=".csv" required>
-  <button class="btn">Importér</button>
+{% extends "base.html" %}
+{% block content %}
+<h1>Upload pakkeliste (CSV)</h1>
+{% if not logged %}
+<p>Du skal være logget ind.</p>
+{% else %}
+<form class="card" method="post" enctype="multipart/form-data">
+  <input type="file" name="file" accept=".csv,text/csv" required>
+  <button type="submit">Upload</button>
+  <p class="muted">Understøttede kolonner: Vehicle, Place, Item, Quantity, Note (danske varianter accepteres).</p>
 </form>
-{% if msg %}<div class="msg">{{ msg }}</div>{% endif %}
+{% endif %}
 {% endblock %}
