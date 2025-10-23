@@ -1,61 +1,174 @@
-{% extends "base.html" %}{% block content %}
-{% set v=v %}
-<h2>{{ v.name }}</h2>
-<div class="row small">
-  <a class="btn secondary" href="/vehicle/{{ v.id }}/export">Eksportér CSV</a>
+{% extends "base.html" %}
+{% block content %}
+<div class="row between vhead">
+  <h1>{{ v.name }}</h1>
+  <a class="btn" href="/vehicle/{{ v.id }}/export">Eksportér CSV</a>
 </div>
 
-<div class="card mt12">
-  <form method="post" action="/vehicle/{{ v.id }}/description" class="grid">
-    <label>Beskrivelse (vises øverst)</label>
-    <textarea class="input" rows="3" name="description" placeholder="Kort beskrivelse af køretøjet…">{{ v.description or "" }}</textarea>
-    <div class="row"><button class="btn">Gem beskrivelse</button></div>
-  </form>
-  <hr style="border:0;border-top:1px solid #223146;margin:12px 0">
-  <form method="post" action="/vehicle/{{ v.id }}/upload_doc" enctype="multipart/form-data" class="row" style="gap:10px">
-    <input class="input" style="max-width:320px" type="file" name="file" required>
-    <button class="btn">Upload dokument</button>
-  </form>
-  {% if docs %}
-  <div class="mt12 small">Dokumenter:</div>
-  <ul class="list small">
-    {% for d in docs %}
-      <li><a href="/vehicle/{{ v.id }}/doc/{{ d.id }}/download">{{ d.orig_name }}</a></li>
+<div class="card">
+  <label class="row between wrap">
+    <span>Beskrivelse</span>
+    {% if request.session.get('user') %}
+    <button id="saveDesc" class="btn">Gem</button>
+    {% endif %}
+  </label>
+  <textarea id="desc" rows="3" placeholder="Skriv en kort tekst om køretøjet...">{{ v.description }}</textarea>
+
+  {% if request.session.get('user') %}
+  <div class="row gap">
+    <form id="docForm" enctype="multipart/form-data">
+      <input type="file" name="file" required>
+      <button class="btn" type="submit">Upload dokument</button>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if v.docs and v.docs|length %}
+  <ul class="docs">
+    {% for d in v.docs %}
+      <li><a href="{{ d.path }}" target="_blank">📄 {{ d.filename }}</a></li>
     {% endfor %}
   </ul>
   {% endif %}
 </div>
 
-<div class="row mt16">
-  <input id="q-vehicle" class="input" placeholder="Søg i dette køretøj…">
-</div>
+<input id="localSearch" class="search" placeholder="Søg i dette køretøj...">
 
-{% for p in v.places %}
+{% if request.session.get('user') %}
+<div class="row gap">
+  <form id="newPlaceForm" class="inline-form">
+    <input name="name" placeholder="Nyt rum/kasse..." required>
+    <button class="btn" type="submit">Tilføj rum</button>
+  </form>
+</div>
+{% endif %}
+
+<div id="places">
+  {% for p in v.places %}
   <details class="place" id="place-{{ p.id }}">
-    <summary><header><h3>{{ p.name }}</h3><span class="badge">{{ p.items|length }}</span></header></summary>
-    {% for it in p.items %}
-      <div class="item" id="item-{{ it.id }}" data-search="{{ (it.name ~ ' ' ~ (it.note or ''))|lower }}">
-        <div class="row" style="justify-content:space-between">
-          <div>
-            <strong>{{ it.name }}</strong>
-            <span class="meta"> • Antal: {{ it.quantity }}</span>
-            {% if it.note %}<span class="meta"> • {{ it.note }}</span>{% endif %}
+    <summary>
+      <b class="pname" {% if request.session.get('user') %}contenteditable="true" data-pid="{{ p.id }}"{% endif %}>{{ p.name }}</b>
+      <span class="badge">{{ p.items | length }} enheder</span>
+    </summary>
+    {% if request.session.get('user') %}
+    <form class="inline-form small addItemForm" data-pid="{{ p.id }}">
+      <input name="name" placeholder="Nyt udstyr..." required>
+      <input name="quantity" type="number" min="1" value="1" style="max-width:80px">
+      <input name="note" placeholder="Note (valgfri)">
+      <button class="btn" type="submit">Tilføj</button>
+    </form>
+    {% endif %}
+    <ul class="items">
+      {% for it in p.items %}
+      <li class="item" data-name="{{ it.name | lower }} {{ it.note | lower }}">
+        <div class="row between">
+          <div class="wrap">
+            <b>{{ it.name }}</b>
+            {% if it.note %}<span class="muted">– {{ it.note }}</span>{% endif %}
+            {% if it.photo_path %} <a href="{{ it.photo_path }}" target="_blank">📷</a>{% endif %}
           </div>
-          <div class="row">
-            {% if it.photo_filename %}<span title="Har billede">📷</span>{% endif %}
-            <form method="post" action="/item/{{ it.id }}/upload_photo" enctype="multipart/form-data" class="row">
-              <input type="file" name="photo" style="max-width:180px" class="input hide-m">
-              <button class="btn secondary">Billede</button>
-            </form>
+          <div class="row gap">
+            <span class="qty">x{{ it.quantity }}</span>
+            {% if request.session.get('user') %}
+            <label class="btn small">
+              📷
+              <input type="file" class="hidden uploadPhoto" data-itemid="{{ it.id }}">
+            </label>
+            {% endif %}
           </div>
         </div>
-        {% if it.photo_filename %}
-          <div class="mt8"><img src="/uploads/items/{{ it.photo_filename }}" alt="" style="max-width:100%;border-radius:8px"></div>
-        {% endif %}
-      </div>
-    {% endfor %}
+      </li>
+      {% endfor %}
+    </ul>
   </details>
-{% endfor %}
+  {% else %}
+  <p>Ingen rum/kasser endnu.</p>
+  {% endfor %}
+</div>
 
-<script>document.body.dataset.page='vehicle';</script>
+<script>
+const vid = {{ v.id }};
+
+// Lokal søgning
+document.getElementById('localSearch').addEventListener('input', function(){
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.place').forEach(place => {
+    let any = false;
+    place.querySelectorAll('.item').forEach(li => {
+      const hit = li.dataset.name.includes(q);
+      li.style.display = hit ? '' : 'none';
+      if (hit) any = true;
+    });
+    place.style.display = (any || q==='') ? '' : 'none';
+    if (q!=='' && any) place.open = true;
+  });
+});
+
+// Gem beskrivelse
+const saveDesc = document.getElementById('saveDesc');
+if (saveDesc){
+  saveDesc.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData();
+    fd.append('description', document.getElementById('desc').value);
+    const r = await fetch(`/vehicle/${vid}/description`, {method:'POST', body:fd});
+    if(r.ok){ saveDesc.textContent='Gemt ✓'; setTimeout(()=>saveDesc.textContent='Gem',1000); }
+  });
+}
+
+// Upload dokument
+const docForm = document.getElementById('docForm');
+if (docForm){
+  docForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(docForm);
+    const r = await fetch(`/vehicle/${vid}/docs`, {method:'POST', body:fd});
+    if(r.ok){ location.reload(); }
+  });
+}
+
+// Opret rum
+const newPlaceForm = document.getElementById('newPlaceForm');
+if (newPlaceForm){
+  newPlaceForm.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(newPlaceForm);
+    const r = await fetch(`/vehicle/${vid}/places/new`, {method:'POST', body:fd});
+    if(r.ok){ location.reload(); }
+  });
+}
+
+// Rename rum (contenteditable)
+document.querySelectorAll('.pname[contenteditable="true"]').forEach(el=>{
+  el.addEventListener('blur', async ()=>{
+    const pid = el.dataset.pid;
+    const fd = new FormData();
+    fd.append('name', el.textContent.trim());
+    await fetch(`/place/${pid}/rename`, {method:'POST', body:fd});
+  });
+});
+
+// Tilføj item i rum
+document.querySelectorAll('.addItemForm').forEach(form=>{
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const pid = form.dataset.pid;
+    const fd = new FormData(form);
+    const r = await fetch(`/place/${pid}/items/new`, {method:'POST', body:fd});
+    if(r.ok){ location.reload(); }
+  });
+});
+
+// Upload foto til item
+document.querySelectorAll('.uploadPhoto').forEach(inp=>{
+  inp.addEventListener('change', async ()=>{
+    const fd = new FormData();
+    const file = inp.files[0];
+    if(!file) return;
+    fd.append('file', file);
+    const r = await fetch(`/item/${inp.dataset.itemid}/photo`, {method:'POST', body:fd});
+    if(r.ok){ location.reload(); }
+  });
+});
+</script>
 {% endblock %}
