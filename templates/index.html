@@ -1,15 +1,25 @@
-{% extends "base.html" %}{% block content %}
-<h2>Oversigt</h2>
-<div class="grid cards">
+{% extends "base.html" %}
+{% block content %}
+<h1>Køretøjer</h1>
+
+{% if logged %}
+<form method="post" action="/vehicles/new" class="inline-form">
+  <input name="name" placeholder="Nyt køretøj..." required>
+  <input name="description" placeholder="Beskrivelse (valgfri)">
+  <button type="submit">Opret</button>
+</form>
+{% endif %}
+
+<ul class="grid">
   {% for v in vehicles %}
-    <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <a href="/vehicle/{{ v.id }}"><strong style="font-size:1.1rem">{{ v.name }}</strong></a>
-        <span class="badge">{{ v.place_count }} rum</span>
+    <li class="card">
+      <div class="row between">
+        <b>{{ v.name }}</b>
+        <a class="btn" href="/vehicle/{{ v.id }}">Åbn</a>
       </div>
-    </div>
+    </li>
   {% else %}
-    <p class="small">Ingen køretøjer endnu.</p>
+    <li>Ingen køretøjer endnu.</li>
   {% endfor %}
-</div>
+</ul>
 {% endblock %}
