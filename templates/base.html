@@ -1,33 +1,24 @@
-{% set title = title or "Pakkelister" %}
 <!doctype html>
 <html lang="da">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{ title }}</title>
-    <link rel="stylesheet" href="/static/app.css">
-  </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <a href="/" class="row"><strong>🚒 Pakkelister</strong></a>
-        <div class="row">
-          <form method="get" action="/search" class="row">
-            <input class="input" name="q" placeholder="Søg i alt udstyr…" style="min-width:260px">
-            <button class="btn">Søg</button>
-          </form>
-          {% if logged %}
-            <a class="btn secondary" href="/logout">Log ud</a>
-          {% else %}
-            <a class="btn secondary" href="/login">Log ind</a>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="container">{% block content %}{% endblock %}</div>
-
-      <div class="footer">© Pakkelister</div>
-    </div>
-    <script src="/static/app.js"></script>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pakkeliste SBR</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script defer src="/static/app.js"></script>
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="/">Pakkeliste</a>
+  <nav class="nav">
+    <a href="/">Forside</a>
+    <a href="/upload">Upload</a>
+    {% if logged %}<a href="/logout">Log ud</a>{% else %}<a href="/login">Log ind</a>{% endif %}
+  </nav>
+</header>
+<main class="container">
+  {% block content %}{% endblock %}
+</main>
+</body>
 </html>
+
