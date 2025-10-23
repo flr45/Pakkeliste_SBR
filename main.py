@@ -1,216 +1,267 @@
+import os, io, csv, secrets
+from typing import Optional, List
 
-import os, csv, io, datetime
-from fastapi import FastAPI, Request, Form, UploadFile, File
-from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
+from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi.responses import RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import create_engine, select, ForeignKey, Integer, String, Text
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
-from starlette.middleware.sessions import SessionMiddleware
+from fastapi.middleware.sessions import SessionMiddleware
+from sqlalchemy import create_engine, select, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload
+from sqlalchemy import Integer, String, ForeignKey, Text
 
-os.makedirs("uploads/vehicle_docs", exist_ok=True)
+# ----------------------- Config -----------------------
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./app.db")
+SECRET_KEY   = os.getenv("APP_SECRET", "change-me")
+ADMIN_USER   = os.getenv("ADMIN_USER", "admin")
+ADMIN_PASS   = os.getenv("ADMIN_PASS", "admin")
+
 os.makedirs("uploads/items", exist_ok=True)
-os.makedirs("static", exist_ok=True)
+os.makedirs("uploads/docs", exist_ok=True)
 
 app = FastAPI()
-app.add_middleware(SessionMiddleware, secret_key=os.getenv("SECRET_KEY","dev-secret"))
+app.add_middleware(SessionMiddleware, secret_key=SECRET_KEY, session_cookie="pl_sess", max_age=60*60*12)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 templates = Jinja2Templates(directory="templates")
 
+# ----------------------- DB Models -----------------------
 class Base(DeclarativeBase): pass
-engine = create_engine("sqlite:///data.db", echo=False)
 
 class Vehicle(Base):
     __tablename__ = "vehicles"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False, unique=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, default="")
     sort: Mapped[int] = mapped_column(Integer, default=0)
-    description: Mapped[str | None] = mapped_column(Text, default=None)
-    places: Mapped[list["Place"]] = relationship(back_populates="vehicle", order_by="Place.sort", cascade="all, delete-orphan")
-    docs: Mapped[list["VehicleDoc"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan")
-
-class Place(Base):
-    __tablename__ = "places"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"))
-    name: Mapped[str] = mapped_column(String(200))
-    sort: Mapped[int] = mapped_column(Integer, default=0)
-    vehicle: Mapped[Vehicle] = relationship(back_populates="places")
-    items: Mapped[list["Item"]] = relationship(back_populates="place", order_by="Item.name", cascade="all, delete-orphan")
-
-class Item(Base):
-    __tablename__ = "items"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    place_id: Mapped[int] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"))
-    name: Mapped[str] = mapped_column(String(300))
-    quantity: Mapped[int] = mapped_column(Integer, default=1)
-    note: Mapped[str | None] = mapped_column(Text, default=None)
-    photo_filename: Mapped[str | None] = mapped_column(String(255), default=None)
-    place: Mapped[Place] = relationship(back_populates="items")
+    places: Mapped[List["Place"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan", order_by="Place.sort, Place.name")
+    docs: Mapped[List["VehicleDoc"]] = relationship(back_populates="vehicle", cascade="all, delete-orphan", order_by="VehicleDoc.id")
 
 class VehicleDoc(Base):
     __tablename__ = "vehicle_docs"
-    id: Mapped[int] = mapped_column(primary_key=True)
-    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"))
-    filename: Mapped[str] = mapped_column(String(255))
-    orig_name: Mapped[str] = mapped_column(String(255))
-    uploaded_at: Mapped[str] = mapped_column(String(32))
-    vehicle: Mapped[Vehicle] = relationship(back_populates="docs")
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"), index=True)
+    filename: Mapped[str] = mapped_column(String(300))
+    path: Mapped[str] = mapped_column(String(400))
+    vehicle: Mapped["Vehicle"] = relationship(back_populates="docs")
 
+class Place(Base):
+    __tablename__ = "places"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    vehicle_id: Mapped[int] = mapped_column(ForeignKey("vehicles.id", ondelete="CASCADE"), index=True)
+    vehicle: Mapped["Vehicle"] = relationship(back_populates="places")
+    items: Mapped[List["Item"]] = relationship(back_populates="place", cascade="all, delete-orphan", order_by="Item.sort, Item.name")
+
+class Item(Base):
+    __tablename__ = "items"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    note: Mapped[Optional[str]] = mapped_column(String(500), default="")
+    sort: Mapped[int] = mapped_column(Integer, default=0)
+    photo_path: Mapped[Optional[str]] = mapped_column(String(500), default=None)
+    place_id: Mapped[int] = mapped_column(ForeignKey("places.id", ondelete="CASCADE"), index=True)
+    place: Mapped["Place"] = relationship(back_populates="items")
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {})
 Base.metadata.create_all(engine)
 
-def is_logged(request: Request)->bool:
-    return request.session.get("auth")==1
+def db() -> Session: return Session(engine)
+def is_logged(req: Request) -> bool: return bool(req.session.get("user"))
+def require_login(req: Request):
+    if not is_logged(req):
+        raise RedirectResponse("/login", 303)
 
-@app.get("/", response_class=HTMLResponse)
-def home(request: Request):
-    with Session(engine) as s:
-        rows = s.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
-        data = [{"id":v.id,"name":v.name,"place_count":len(v.places)} for v in rows]
-    return templates.TemplateResponse("index.html", {"request": request, "vehicles": data, "logged": is_logged(request)})
-
-@app.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, msg: str | None = None):
+# ----------------------- Auth -----------------------
+@app.get("/login")
+def login_form(request: Request, msg: Optional[str]=None):
     return templates.TemplateResponse("login.html", {"request":request, "msg":msg})
 
 @app.post("/login")
-def login_post(request: Request, username: str = Form(...), password: str = Form(...)):
-    u = os.getenv("ADMIN_USER","admin"); p = os.getenv("ADMIN_PASSWORD","admin")
-    if username == u and password == p:
-        request.session["auth"]=1; return RedirectResponse("/", status_code=303)
-    return RedirectResponse("/login?msg=Forkert+login", status_code=303)
+def do_login(request: Request, username: str = Form(...), password: str = Form(...)):
+    if username == ADMIN_USER and password == ADMIN_PASS:
+        request.session["user"] = username
+        return RedirectResponse("/", 303)
+    return templates.TemplateResponse("login.html", {"request":request, "msg":"Forkert login"})
 
 @app.get("/logout")
 def logout(request: Request):
-    request.session.clear(); return RedirectResponse("/", status_code=303)
+    request.session.clear()
+    return RedirectResponse("/", 303)
 
-@app.get("/search", response_class=HTMLResponse)
-def global_search(request: Request, q: str | None = None):
-    results = []
-    if q:
-        term = f"%{q.lower()}%"
-        with Session(engine) as s:
-            rows = s.execute(
-                select(Item, Place, Vehicle)
-                .join(Place, Item.place_id == Place.id)
-                .join(Vehicle, Place.vehicle_id == Vehicle.id)
-                .where((Item.name.ilike(term)) | (Item.note.ilike(term)))
-                .order_by(Vehicle.name, Place.name, Item.name)
-            ).all()
-            for it, pl, ve in rows:
-                results.append({
-                    "vehicle_id": ve.id, "vehicle_name": ve.name,
-                    "place_id": pl.id, "place_name": pl.name,
-                    "item_id": it.id, "item_name": it.name, "quantity": it.quantity
-                })
-    return templates.TemplateResponse("search.html", {"request":request, "q":q, "results":results, "logged": is_logged(request)})
+# ----------------------- Pages -----------------------
+@app.get("/")
+def home(request: Request):
+    with db() as s:
+        rows = s.execute(select(Vehicle).order_by(Vehicle.sort, Vehicle.name)).scalars().all()
+        vehicles = [{"id":v.id,"name":v.name} for v in rows]
+    return templates.TemplateResponse("index.html", {"request":request, "vehicles":vehicles, "logged":is_logged(request)})
 
-@app.get("/vehicle/{vehicle_id}", response_class=HTMLResponse)
+@app.post("/vehicles/new")
+def create_vehicle(request: Request, name: str = Form(...), description: str = Form("")):
+    require_login(request)
+    with db() as s:
+        if s.scalar(select(func.count()).select_from(Vehicle).where(Vehicle.name==name))>0:
+            return RedirectResponse("/?msg=Findes%20allerede", 303)
+        v = Vehicle(name=name.strip(), description=description.strip())
+        s.add(v); s.commit()
+        return RedirectResponse(f"/vehicle/{v.id}", 303)
+
+@app.get("/vehicle/{vehicle_id}")
 def vehicle_detail(request: Request, vehicle_id: int):
-    with Session(engine) as s:
+    with db() as s:
+        v = s.execute(
+            select(Vehicle)
+            .options(
+                selectinload(Vehicle.places).selectinload(Place.items),
+                selectinload(Vehicle.docs)
+            )
+            .where(Vehicle.id==vehicle_id)
+        ).scalar_one_or_none()
+        if not v: return Response("Ikke fundet", status_code=404)
+        data = {
+            "id": v.id, "name": v.name, "description": v.description or "",
+            "docs": [{"id":d.id,"filename":d.filename,"path":d.path} for d in v.docs],
+            "places":[
+                {"id":p.id,"name":p.name,"items":[
+                    {"id":it.id,"name":it.name,"quantity":it.quantity,"note":it.note or "","photo_path":it.photo_path}
+                for it in p.items]}
+            for p in v.places]
+        }
+    return templates.TemplateResponse("vehicle.html", {"request":request, "v":data, "logged":is_logged(request)})
+
+# ----------------------- Inline edits & adds (AJAX) -----------------------
+@app.post("/vehicle/{vehicle_id}/description")
+def update_vehicle_description(request: Request, vehicle_id:int, description: str = Form("")):
+    require_login(request)
+    with db() as s:
         v = s.get(Vehicle, vehicle_id)
-        if not v:
-            return RedirectResponse("/", status_code=303)
-        places = []
-        for p in v.places:
-            items = [{"id":i.id,"name":i.name,"quantity":i.quantity,"note":i.note,"photo_filename":i.photo_filename} for i in p.items]
-            places.append({"id":p.id,"name":p.name,"items":items})
-        docs = [{"id":d.id,"orig_name":d.orig_name} for d in v.docs]
-        data = {"id":v.id,"name":v.name,"description":v.description,"places":places}
-    return templates.TemplateResponse("vehicle.html", {"request":request, "v":data, "docs":docs, "logged":is_logged(request)})
+        if not v: return JSONResponse({"ok":False}, status_code=404)
+        v.description = description.strip()
+        s.commit()
+    return JSONResponse({"ok":True})
+
+@app.post("/vehicle/{vehicle_id}/places/new")
+def create_place(request: Request, vehicle_id:int, name: str = Form(...)):
+    require_login(request)
+    with db() as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v: return JSONResponse({"ok":False}, status_code=404)
+        p = Place(name=name.strip(), vehicle=v)
+        s.add(p); s.commit()
+        return JSONResponse({"ok":True, "id":p.id, "name":p.name})
+
+@app.post("/place/{place_id}/rename")
+def rename_place(request: Request, place_id:int, name: str = Form(...)):
+    require_login(request)
+    with db() as s:
+        p = s.get(Place, place_id)
+        if not p: return JSONResponse({"ok":False}, status_code=404)
+        p.name = name.strip()
+        s.commit()
+        return JSONResponse({"ok":True})
+
+@app.post("/place/{place_id}/items/new")
+def create_item(request: Request, place_id:int, name: str = Form(...), quantity:int = Form(1), note:str = Form("")):
+    require_login(request)
+    with db() as s:
+        p = s.get(Place, place_id)
+        if not p: return JSONResponse({"ok":False}, status_code=404)
+        it = Item(name=name.strip(), quantity=int(quantity or 1), note=note.strip(), place=p)
+        s.add(it); s.commit()
+        return JSONResponse({"ok":True, "id":it.id})
+
+@app.post("/item/{item_id}/photo")
+async def upload_item_photo(request: Request, item_id:int, file: UploadFile = File(...)):
+    require_login(request)
+    ext = os.path.splitext(file.filename)[1].lower()
+    safe = secrets.token_hex(8) + ext
+    path = f"uploads/items/{safe}"
+    with open(path, "wb") as f: f.write(await file.read())
+    with db() as s:
+        it = s.get(Item, item_id)
+        if not it: return JSONResponse({"ok":False}, status_code=404)
+        it.photo_path = "/" + path
+        s.commit()
+    return JSONResponse({"ok":True, "path": "/" + path})
+
+@app.post("/vehicle/{vehicle_id}/docs")
+async def upload_vehicle_doc(request: Request, vehicle_id: int, file: UploadFile = File(...)):
+    require_login(request)
+    safe = secrets.token_hex(8) + "_" + file.filename.replace("/", "_")
+    path = f"uploads/docs/{safe}"
+    with open(path, "wb") as f: f.write(await file.read())
+    with db() as s:
+        v = s.get(Vehicle, vehicle_id)
+        if not v: return JSONResponse({"ok":False}, status_code=404)
+        d = VehicleDoc(vehicle=v, filename=file.filename, path="/" + path)
+        s.add(d); s.commit()
+        return JSONResponse({"ok":True, "id":d.id, "filename":d.filename, "path":d.path})
+
+# ----------------------- Import / Export -----------------------
+def _read_csv_bytes(b: bytes):
+    try: text = b.decode("utf-8")
+    except UnicodeDecodeError:
+        try: text = b.decode("latin-1")
+        except UnicodeDecodeError: text = b.decode(errors="ignore")
+    first = text.splitlines()[0] if text.splitlines() else ""
+    delim = ";" if ";" in first else ("," if "," in first else ";")
+    reader = csv.DictReader(io.StringIO(text), delimiter=delim)
+    rows = []
+    for row in reader:
+        rows.append({(k or '').strip().lower(): (v.strip() if isinstance(v,str) else v) for k,v in row.items()})
+    return rows
+
+@app.get("/upload")
+def upload_form(request: Request):
+    return templates.TemplateResponse("upload.html", {"request":request, "logged":is_logged(request)})
+
+@app.post("/upload")
+async def do_upload(request: Request, file: UploadFile = File(...)):
+    require_login(request)
+    rows = _read_csv_bytes(await file.read())
+    with db() as s:
+        veh_cache = {v.name.lower(): v for v in s.execute(select(Vehicle)).scalars().all()}
+        for r in rows:
+            vname = (r.get("vehicle") or r.get("køretøj") or "").strip()
+            pname = (r.get("place") or r.get("rum") or r.get("kasse") or "").strip()
+            iname = (r.get("item") or r.get("udstyr") or r.get("navn") or "").strip()
+            qty = r.get("quantity") or r.get("antal") or "1"
+            note = r.get("note") or r.get("bemærkning") or ""
+            if not (pname and iname): continue
+            veh = veh_cache.get(vname.lower()) if vname else None
+            if not veh:
+                key = vname.lower() if vname else "standard"
+                veh = veh_cache.get(key)
+                if not veh:
+                    veh = Vehicle(name=vname or "Standard"); s.add(veh); s.flush(); veh_cache[key] = veh
+            # place
+            place = None
+            for p in veh.places:
+                if p.name.lower() == pname.lower(): place = p; break
+            if not place:
+                place = Place(name=pname, vehicle=veh); s.add(place); s.flush()
+            try: q = int(str(qty) or "1")
+            except: q = 1
+            s.add(Item(name=iname, quantity=q, note=note, place=place))
+        s.commit()
+    return RedirectResponse("/?msg=Import%20ok", 303)
 
 @app.get("/vehicle/{vehicle_id}/export")
 def export_vehicle(vehicle_id: int):
-    with Session(engine) as s:
-        v = s.get(Vehicle, vehicle_id)
-        if not v: 
-            return RedirectResponse("/", status_code=303)
-        output = io.StringIO()
-        w = csv.writer(output)
-        w.writerow(["Køretøj","Rum","Udstyr","Antal","Note"])
+    output = io.StringIO(); writer = csv.writer(output, delimiter=";")
+    writer.writerow(["Vehicle","Place","Item","Quantity","Note"])
+    with db() as s:
+        v = s.execute(
+            select(Vehicle)
+            .options(selectinload(Vehicle.places).selectinload(Place.items))
+            .where(Vehicle.id==vehicle_id)
+        ).scalar_one_or_none()
+        if not v: return Response(status_code=404)
         for p in v.places:
-            for i in p.items:
-                w.writerow([v.name, p.name, i.name, i.quantity, i.note or ""])
-        output.seek(0)
-        return StreamingResponse(iter([output.read()]), media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{v.name}_pakkeliste.csv"'} )
-
-@app.post("/vehicle/{vehicle_id}/description")
-def set_description(vehicle_id: int, description: str = Form("")):
-    with Session(engine) as s:
-        v = s.get(Vehicle, vehicle_id)
-        if v:
-            v.description = description.strip()
-            s.commit()
-    return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
-
-@app.post("/vehicle/{vehicle_id}/upload_doc")
-def upload_doc(vehicle_id: int, file: UploadFile = File(...)):
-    filename = f"{vehicle_id}_{int(datetime.datetime.utcnow().timestamp())}_{file.filename}"
-    path = os.path.join("uploads","vehicle_docs",filename)
-    with open(path,"wb") as f:
-        f.write(file.file.read())
-    with Session(engine) as s:
-        d = VehicleDoc(vehicle_id=vehicle_id, filename=filename, orig_name=file.filename, uploaded_at=datetime.datetime.utcnow().isoformat())
-        s.add(d); s.commit()
-    return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
-
-from fastapi import Response
-@app.get("/vehicle/{vehicle_id}/doc/{doc_id}/download")
-def download_doc(vehicle_id: int, doc_id: int):
-    with Session(engine) as s:
-        d = s.get(VehicleDoc, doc_id)
-        if not d or d.vehicle_id != vehicle_id:
-            return RedirectResponse(f"/vehicle/{vehicle_id}", status_code=303)
-        path = os.path.join("uploads","vehicle_docs", d.filename)
-        return StreamingResponse(open(path,"rb"), media_type="application/octet-stream", 
-            headers={"Content-Disposition": f'attachment; filename="{d.orig_name}"'})
-
-@app.post("/item/{item_id}/upload_photo")
-def upload_item_photo(item_id: int, photo: UploadFile = File(...)):
-    ext = os.path.splitext(photo.filename)[1].lower() or ".bin"
-    filename = f"item_{item_id}_{int(datetime.datetime.utcnow().timestamp())}{ext}"
-    path = os.path.join("uploads","items", filename)
-    with open(path,"wb") as f:
-        f.write(photo.file.read())
-    with Session(engine) as s:
-        it = s.get(Item, item_id)
-        if it:
-            it.photo_filename = filename
-            s.commit()
-            vehicle_id = it.place.vehicle_id if it.place else 0
-    if vehicle_id:
-        return RedirectResponse(f"/vehicle/{vehicle_id}?open_place={it.place_id}&highlight_item={it.id}", status_code=303)
-    return RedirectResponse("/", status_code=303)
-
-@app.get("/upload", response_class=HTMLResponse)
-def upload_page(request: Request, msg: str | None = None):
-    return templates.TemplateResponse("upload.html", {"request":request, "msg":msg, "logged": is_logged(request)})
-
-@app.post("/upload")
-def upload_csv(file: UploadFile = File(...)):
-    content = file.file.read().decode("utf-8", errors="ignore")
-    reader = csv.DictReader(io.StringIO(content))
-    with Session(engine) as s:
-        cache_v = {}; cache_p = {}
-        for row in reader:
-            vname = (row.get("Vehicle") or row.get("Køretøj") or "").strip()
-            pname = (row.get("Place") or row.get("Rum") or "").strip()
-            iname = (row.get("Item") or row.get("Udstyr") or "").strip()
-            qty = int((row.get("Quantity") or row.get("Antal") or "1") or "1")
-            note = (row.get("Note") or "").strip() or None
-            if not vname or not pname or not iname: 
-                continue
-            vobj = cache_v.get(vname) or s.execute(select(Vehicle).where(Vehicle.name==vname)).scalar_one_or_none()
-            if not vobj:
-                vobj = Vehicle(name=vname, sort=0); s.add(vobj); s.flush()
-            cache_v[vname] = vobj
-            pkey = (vobj.id, pname)
-            pobj = cache_p.get(pkey) or s.execute(select(Place).where(Place.vehicle_id==vobj.id, Place.name==pname)).scalar_one_or_none()
-            if not pobj:
-                pobj = Place(vehicle_id=vobj.id, name=pname, sort=0); s.add(pobj); s.flush()
-            cache_p[pkey] = pobj
-            s.add(Item(place_id=pobj.id, name=iname, quantity=qty, note=note))
-        s.commit()
-    return RedirectResponse("/?msg=Import+ok", status_code=303)
+            for it in p.items:
+                writer.writerow([v.name, p.name, it.name, it.quantity, it.note or ""])
+    data = output.getvalue().encode("utf-8")
+    return Response(data, media_type="text/csv", headers={"Content-Disposition": f'attachment; filename="{v.name}_pakkeliste.csv"'})
