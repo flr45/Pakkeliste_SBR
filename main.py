@@ -1,10 +1,10 @@
 import os, io, csv, secrets
 from typing import Optional, List
 
-from fastapi import FastAPI, Request, UploadFile, File, Form
+from fastapi import FastAPI, Request, UploadFile, File, Form, HTTPException
 from fastapi.responses import RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.sessions import SessionMiddleware  # <— rettet her
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import create_engine, select, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session, selectinload
@@ -71,10 +71,8 @@ Base.metadata.create_all(engine)
 def db() -> Session: return Session(engine)
 def is_logged(req: Request) -> bool: return bool(req.session.get("user"))
 def require_login(req: Request):
-    from fastapi import HTTPException
     if not is_logged(req):
-        # Safe redirect via raising response
-        raise RedirectResponse("/login", status_code=303)
+        raise HTTPException(status_code=303, headers={"Location": "/login"})
 
 # ----------------------- Auth -----------------------
 @app.get("/login")
