@@ -1,20 +1,51 @@
 {% extends "base.html" %}
+{% block title %}Køretøjer · SBR Operativ Portal{% endblock %}
 {% block content %}
-<h2>Køretøjer</h2>
-<form method="post" action="/vehicles" class="row">
-  <input name="name" placeholder="Nyt køretøj..." required>
-  <button>Tilføj</button>
-</form>
-<div class="grid">
-  {% for v in vehicles %}
-  <div class="card">
-    <h3><a href="/vehicle/{{ v.id }}">{{ v.name }}</a></h3>
-    {% if logged %}
-    <form method="post" action="/vehicle/{{ v.id }}/delete" onsubmit="return confirm('Slette {{ v.name }}?');">
-      <button class="danger">Slet</button>
-    </form>
-    {% endif %}
+<header class="page-header">
+  <div>
+    <p class="kicker">Stationens materiel</p>
+    <h1>Køretøjer</h1>
+    <p class="lead">Vælg et køretøj for at se rum, pakkelister og dokumenter.</p>
   </div>
+  {% if logged %}<button class="primary-button" type="button" data-toggle="new-vehicle">Opret køretøj</button>{% endif %}
+</header>
+
+{% if logged %}
+<section id="new-vehicle" class="inline-create hidden">
+  <form method="post" action="/vehicles/new" class="create-form">
+    <div>
+      <label for="vehicle-name">Navn</label>
+      <input id="vehicle-name" name="name" placeholder="Eksempel: Sprøjte M2" required>
+    </div>
+    <div>
+      <label for="vehicle-description">Beskrivelse</label>
+      <input id="vehicle-description" name="description" placeholder="Kort funktion og anvendelse">
+    </div>
+    <button class="primary-button" type="submit">Opret</button>
+  </form>
+</section>
+{% endif %}
+
+<section class="toolbar">
+  <label class="search-field"><span>⌕</span><input id="vehicleFilter" type="search" placeholder="Søg efter køretøj" autocomplete="off"></label>
+  <span class="count-label">{{ vehicles|length }} køretøjer</span>
+</section>
+
+<div id="vehicleDirectory" class="vehicle-list">
+  {% for vehicle in vehicles %}
+    <a class="vehicle-row" href="/vehicle/{{ vehicle.id }}" data-search="{{ vehicle.name|lower }} {{ vehicle.description|lower }}">
+      <span class="vehicle-symbol">🚒</span>
+      <span class="vehicle-main">
+        <strong>{{ vehicle.name }}</strong>
+        <small>{{ vehicle.description or 'Ingen beskrivelse endnu' }}</small>
+      </span>
+      <span class="vehicle-meta"><b>{{ vehicle.place_count }}</b><small>rum</small></span>
+      <span class="vehicle-meta"><b>{{ vehicle.item_count }}</b><small>poster</small></span>
+      <span class="row-arrow">›</span>
+    </a>
+  {% else %}
+    <div class="empty-panel"><strong>Ingen køretøjer oprettet</strong><span>Opret det første køretøj for at begynde pakkelisten.</span></div>
   {% endfor %}
 </div>
+<p id="vehicleEmptySearch" class="empty-search hidden">Ingen køretøjer matcher søgningen.</p>
 {% endblock %}
