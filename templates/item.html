@@ -8,43 +8,50 @@
   <strong>{{ item.name }}</strong>
 </nav>
 
-<header class="page-header detail-header">
+<header class="equipment-detail-header">
   <div>
-    <p class="kicker">Udstyr</p>
+    <div class="eyebrow">UDSTYR · {{ item.vehicle.name | upper }}</div>
     <h1>{{ item.name }}</h1>
-    <p class="lead">Placeret i {{ item.place.name }} på {{ item.vehicle.name }}.</p>
+    <p>Placeret i <strong>{{ item.place.name }}</strong> på <strong>{{ item.vehicle.name }}</strong>.</p>
   </div>
-  <a class="secondary-button" href="/vehicle/{{ item.vehicle.id }}/place/{{ item.place.id }}">Tilbage til rummet</a>
+  <div class="header-actions">
+    <button class="button secondary favorite-toggle" type="button"
+      data-favorite-type="item" data-favorite-id="{{ item.id }}"
+      data-favorite-title="{{ item.name }}" data-favorite-url="/item/{{ item.id }}">Gem favorit</button>
+    <button class="button secondary copy-link" type="button">Kopiér link</button>
+    <a class="button primary" href="/vehicle/{{ item.vehicle.id }}/place/{{ item.place.id }}">Til rummet</a>
+  </div>
 </header>
 
-<section class="detail-grid">
-  <div class="equipment-visual panel">
+<section class="equipment-detail-grid">
+  <div class="equipment-photo-panel">
     {% if item.photo_path %}
       <img src="{{ item.photo_path }}" alt="{{ item.name }}">
     {% else %}
-      <div class="equipment-placeholder"><span>▦</span><small>Intet billede endnu</small></div>
+      <div class="equipment-photo-placeholder"><span>UDSTYR</span><small>Intet billede uploadet</small></div>
     {% endif %}
     {% if logged %}
-      <label class="upload-button">Upload billede<input id="itemPhotoInput" type="file" data-item-id="{{ item.id }}" hidden></label>
+      <label class="upload-control">Upload eller udskift billede<input id="itemPhotoInput" type="file" data-item-id="{{ item.id }}" accept="image/*" hidden></label>
     {% endif %}
   </div>
 
-  <div class="panel equipment-info">
-    <div class="info-row"><span>Placering</span><strong>{{ item.vehicle.name }} · {{ item.place.name }}</strong></div>
-    <div class="info-row"><span>Antal</span><strong>{{ item.quantity }}</strong></div>
-    <div class="info-row"><span>Beskrivelse</span><strong>{{ item.note or 'Ingen beskrivelse tilføjet endnu' }}</strong></div>
+  <div class="equipment-facts panel">
+    <div class="panel-heading"><div><small>OVERBLIK</small><h2>Registrerede oplysninger</h2></div></div>
+    <dl class="fact-list">
+      <div><dt>Køretøj</dt><dd><a href="/vehicle/{{ item.vehicle.id }}">{{ item.vehicle.name }}</a></dd></div>
+      <div><dt>Placering</dt><dd><a href="/vehicle/{{ item.vehicle.id }}/place/{{ item.place.id }}">{{ item.place.name }}</a></dd></div>
+      <div><dt>Antal</dt><dd>{{ item.quantity }}</dd></div>
+      <div><dt>Note</dt><dd>{{ item.note or 'Ingen note tilføjet' }}</dd></div>
+    </dl>
   </div>
 </section>
 
-<section class="tab-panel panel">
-  <div class="tab-strip" role="tablist">
-    <button class="active" type="button">Oversigt</button>
-    <button type="button" disabled>Video</button>
-    <button type="button" disabled>Dokumenter</button>
+<section class="panel information-panel">
+  <div class="panel-heading"><div><small>ANVENDELSE</small><h2>Om udstyret</h2></div></div>
+  <p>{{ item.note or 'Der er endnu ikke tilføjet en nærmere beskrivelse. Udstyrssiden er klar til senere at få instruktion, sikkerhedspunkter, video og dokumenter.' }}</p>
+  <div class="placeholder-tabs">
+    <span class="active">Oversigt</span><span>Instruktion</span><span>Video</span><span>Dokumenter</span>
   </div>
-  <div class="tab-content">
-    <h2>Om udstyret</h2>
-    <p>{{ item.note or 'Denne side er klar til at få tilføjet anvendelse, specifikationer, instruktioner og relaterede dokumenter i næste udviklingsetape.' }}</p>
-  </div>
+  <div class="future-content-note"><strong>Næste indholdslag</strong><p>Her kan stationens administrator senere tilknytte betjeningsvejledning, kontrolpunkter og læringsmateriale.</p></div>
 </section>
 {% endblock %}
