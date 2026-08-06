@@ -2,23 +2,24 @@
 {% block title %}Videoakademi · SBR Operativ Portal{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div>
-    <p class="kicker">Læring</p>
-    <h1>Videoakademi</h1>
-    <p class="lead">Korte instruktioner knyttet til køretøjer og udstyr.</p>
-  </div>
+  <div><div class="eyebrow">LÆRING OG INSTRUKTION</div><h1>Videoakademi</h1><p>Korte, praksisnære instruktioner til stationens køretøjer, udstyr og procedurer.</p></div>
 </header>
 
-<section class="toolbar">
-  <label class="search-field"><span>⌕</span><input type="search" placeholder="Søg efter video" disabled></label>
-  <span class="status-chip">Klar til indhold</span>
+<section class="media-category-grid">
+  <article class="media-category"><span>01</span><div><small>KØRETØJER</small><h2>Betjening og opbygning</h2><p>Gennemgang af funktioner, paneler, rum og særlige systemer.</p></div></article>
+  <article class="media-category"><span>02</span><div><small>UDSTYR</small><h2>Materiel og anvendelse</h2><p>Korte videoer om klargøring, korrekt brug og kontrol efter indsats.</p></div></article>
+  <article class="media-category"><span>03</span><div><small>PROCEDURER</small><h2>Trin for trin</h2><p>Stationens arbejdsgange og udvalgte operative procedurer.</p></div></article>
 </section>
 
-<div class="content-grid three">
-  <article class="content-card"><span class="content-card-icon">▶</span><strong>Køretøjer</strong><p>Gennemgang af betjening og opbygning.</p></article>
-  <article class="content-card"><span class="content-card-icon">▶</span><strong>Udstyr</strong><p>Korte instruktioner til stationens materiel.</p></article>
-  <article class="content-card"><span class="content-card-icon">▶</span><strong>Procedurer</strong><p>Trin-for-trin videoer til udvalgte opgaver.</p></article>
-</div>
+<section class="panel academy-empty">
+  <div class="academy-mark">VIDEO</div>
+  <div><small>INDHOLDSMODUL</small><h2>Videoakademiet er klar til første indhold</h2><p>Når videodatamodellen aktiveres, bliver videoer søgbare og kan tilknyttes det relevante køretøj eller udstyr. Siden er allerede bygget som en selvstændig del af portalen.</p></div>
+</section>
 
-<div class="empty-panel large"><strong>Ingen videoer uploadet endnu</strong><span>Datamodellen til videoer bygges i næste etape. Siden og navigationen er nu klar.</span></div>
+{% if logged %}
+<section class="admin-callout">
+  <div><small>ADMINISTRATOR</small><strong>Næste redaktionelle opgave</strong><p>Lav en kort prioriteret liste over de første instruktioner. Et godt startpunkt er køretøjsbetjening, Højtryksslange (HT) og særligt materiel.</p></div>
+  <a class="button secondary" href="/vehicles">Gå til køretøjer</a>
+</section>
+{% endif %}
 {% endblock %}
