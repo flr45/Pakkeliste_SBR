@@ -1,0 +1,47 @@
+name: Apply SBR Portal v0.3 from payload
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/apply-v03-main.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply-major-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/v0.3-major-update
+          fetch-depth: 0
+
+      - name: Extract and validate v0.3
+        shell: bash
+        run: |
+          set -euo pipefail
+          base64 --decode v03_payload.b64 > /tmp/sbr-v03.tar.gz
+          echo "74238e0116b135847b8a23e73f1f8ff4407e93a0e2e4d3553be8b5cdc259bf3e  /tmp/sbr-v03.tar.gz" | sha256sum --check
+          tar -xzf /tmp/sbr-v03.tar.gz -C .
+          python -m py_compile main.py
+          rm -f v03_payload.b64 .github/workflows/apply-v03.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Build SBR Operativ Portal v0.3 major update"
+          git push origin HEAD:feature/v0.3-major-update
+
+      - name: Remove temporary main workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git switch -C main origin/main
+          rm -f .github/workflows/apply-v03-main.yml
+          git add -A
+          git commit -m "Remove temporary v0.3 build workflow"
+          git push origin HEAD:main
