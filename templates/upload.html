@@ -2,20 +2,27 @@
 {% block title %}Administration · SBR Operativ Portal{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div>
-    <p class="kicker">Administration</p>
-    <h1>Importér pakkeliste</h1>
-    <p class="lead">Upload en CSV-fil med køretøjer, rum og udstyrsposter.</p>
-  </div>
+  <div><div class="eyebrow">ADMINISTRATION</div><h1>Importér pakkeliste</h1><p>Indlæs mange rum og udstyrsposter på én gang fra en CSV-fil.</p></div>
+  <a class="button secondary" href="/vehicles">Administrér køretøjer</a>
 </header>
 
 {% if not logged %}
-  <div class="empty-panel large"><strong>Du skal være logget ind</strong><span>Log ind for at importere eller redigere indhold.</span></div>
+  <div class="empty-panel"><strong>Du skal være logget ind</strong><p>Log ind for at importere eller redigere portalens indhold.</p><a class="button primary" href="/login">Gå til login</a></div>
 {% else %}
-  <form class="card" method="post" enctype="multipart/form-data">
-    <label>CSV-fil<input type="file" name="file" accept=".csv,text/csv" required></label>
-    <button type="submit">Start import</button>
-    <p class="muted">Understøttede kolonner: Vehicle, Place, Item, Quantity og Note. Danske kolonnenavne accepteres også.</p>
-  </form>
+  <div class="admin-workspace">
+    <section class="upload-card">
+      <div><small>CSV-IMPORT</small><h2>Vælg en pakkeliste</h2><p>Eksisterende indhold bevares. Nye poster bliver tilføjet til de relevante køretøjer og rum.</p></div>
+      <form method="post" enctype="multipart/form-data" class="form-stack">
+        <label class="file-drop">CSV-fil<input type="file" name="file" accept=".csv,text/csv" required><span>Vælg en .csv-fil fra computeren</span></label>
+        <button class="button primary full" type="submit">Start import</button>
+      </form>
+    </section>
+
+    <section class="panel import-guide">
+      <div class="panel-heading"><div><small>FORMAT</small><h2>Understøttede kolonner</h2></div></div>
+      <div class="column-list"><span>Vehicle / Køretøj</span><span>Place / Rum / Kasse</span><span>Item / Udstyr / Navn</span><span>Quantity / Antal</span><span>Note / Bemærkning</span></div>
+      <div class="code-sample">Vehicle;Place;Item;Quantity;Note<br>M2;Venstre side;Højtryksslange (HT);1;Klar til brug</div>
+    </section>
+  </div>
 {% endif %}
 {% endblock %}
