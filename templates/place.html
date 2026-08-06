@@ -7,55 +7,72 @@
   <strong>{{ place.name }}</strong>
 </nav>
 
-<header class="page-header detail-header">
+<header class="room-detail-header">
+  <div class="room-detail-number">RUM</div>
   <div>
-    <p class="kicker">{{ place.vehicle.name }}</p>
+    <div class="eyebrow">{{ place.vehicle.name | upper }}</div>
     <h1>{{ place.name }}</h1>
-    <p class="lead">{{ place["items"]|length }} registrerede udstyrsposter i dette rum.</p>
+    <p>{{ place["items"]|length }} registrerede udstyrsposter. Vælg en post for billeder og yderligere oplysninger.</p>
   </div>
-  <a class="secondary-button" href="/vehicle/{{ place.vehicle.id }}">Tilbage til køretøjet</a>
+  <div class="header-actions">
+    <button class="button secondary copy-link" type="button">Kopiér link</button>
+    <a class="button primary" href="/vehicle/{{ place.vehicle.id }}">Til køretøjet</a>
+  </div>
 </header>
 
 {% if logged %}
-<details class="admin-drawer">
-  <summary>Redigér rum og indhold</summary>
-  <div class="admin-drawer-body">
-    <form id="renamePlaceForm" class="form-row" data-place-id="{{ place.id }}">
-      <input name="name" value="{{ place.name }}" required>
-      <button class="secondary-button" type="submit">Gem navn</button>
+<section class="admin-panel">
+  <div class="admin-panel-heading">
+    <div><small>ADMINISTRATION</small><h2>Redigér rum og indhold</h2></div>
+    <button class="icon-button" type="button" data-toggle-panel="placeAdminBody">Vis/skjul</button>
+  </div>
+  <div id="placeAdminBody" class="admin-panel-body">
+    <form id="renamePlaceForm" data-place-id="{{ place.id }}" class="form-stack compact-form">
+      <label>Navn på rum<input name="name" value="{{ place.name }}" required></label>
+      <button class="button secondary" type="submit">Gem navn</button>
     </form>
-    <form id="addItemForm" class="create-form compact-form" data-place-id="{{ place.id }}">
-      <div><label>Udstyr</label><input name="name" placeholder="Navn på udstyr" required></div>
-      <div><label>Antal</label><input name="quantity" type="number" min="1" value="1" required></div>
-      <div><label>Note</label><input name="note" placeholder="Valgfri note"></div>
-      <button class="primary-button" type="submit">Tilføj</button>
+    <form id="addItemForm" data-place-id="{{ place.id }}" class="form-grid item-create-form">
+      <label>Udstyr<input name="name" placeholder="Fx Højtryksslange (HT)" required></label>
+      <label>Antal<input name="quantity" type="number" min="1" value="1" required></label>
+      <label>Note<input name="note" placeholder="Kort placering eller bemærkning"></label>
+      <button class="button primary" type="submit">Tilføj udstyr</button>
     </form>
   </div>
-</details>
+</section>
 {% endif %}
 
-<section class="room-photo-panel">
-  <div class="room-photo-placeholder"><span>{{ place.name }}</span><small>Rumfoto tilføjes i en senere etape</small></div>
+<section class="room-overview-panel">
+  <div class="room-visual-large"><span>{{ place.name }}</span><small>Rumfoto kan tilføjes i en senere version</small></div>
+  <div class="room-overview-copy">
+    <small>PLACERING</small>
+    <h2>{{ place.vehicle.name }} · {{ place.name }}</h2>
+    <p>Indholdet nedenfor er den registrerede pakkeliste for dette rum.</p>
+    <div class="mini-stat"><strong>{{ place["items"]|length }}</strong><span>udstyrsposter</span></div>
+  </div>
 </section>
 
-<section class="section-stack">
-  <div class="section-title-row">
-    <div><p class="kicker">Pakkeliste</p><h2>Indhold</h2></div>
-    <span class="count-label">{{ place["items"]|length }} poster</span>
+<section class="section">
+  <div class="section-title">
+    <div><small>PAKKELISTE</small><h2>Indhold</h2></div>
+    <span class="count-chip">{{ place["items"]|length }} poster</span>
   </div>
+  <label class="filter-search standalone"><span>SØG</span><input id="itemFilter" type="search" placeholder="Søg i dette rum" autocomplete="off"></label>
 
-  <label class="search-field wide"><span>⌕</span><input id="itemFilter" type="search" placeholder="Søg i dette rum" autocomplete="off"></label>
-
-  <div id="itemDirectory" class="item-directory">
+  <div id="itemDirectory" class="equipment-list">
     {% for item in place["items"] %}
-      <a class="item-row" href="/item/{{ item.id }}" data-search="{{ item.name|lower }} {{ item.note|lower }}">
-        {% if item.photo_path %}<img src="{{ item.photo_path }}" alt="{{ item.name }}">{% else %}<span class="item-placeholder">▦</span>{% endif %}
-        <span class="item-main"><strong>{{ item.name }}</strong><small>{{ item.note or 'Ingen note' }}</small></span>
-        <span class="quantity-chip">× {{ item.quantity }}</span>
-        <span class="row-arrow">›</span>
-      </a>
+      <article class="equipment-row" data-search="{{ item.name|lower }} {{ item.note|lower }}">
+        <a class="equipment-row-link" href="/item/{{ item.id }}">
+          {% if item.photo_path %}<img src="{{ item.photo_path }}" alt="{{ item.name }}">{% else %}<span class="equipment-mark">UD</span>{% endif %}
+          <span class="equipment-copy"><strong>{{ item.name }}</strong><small>{{ item.note or 'Ingen note tilføjet' }}</small></span>
+          <span class="quantity-chip">× {{ item.quantity }}</span>
+          <span class="equipment-action">Åbn</span>
+        </a>
+        <button class="favorite-star favorite-toggle" aria-label="Gem favorit"
+          data-favorite-type="item" data-favorite-id="{{ item.id }}"
+          data-favorite-title="{{ item.name }}" data-favorite-url="/item/{{ item.id }}">☆</button>
+      </article>
     {% else %}
-      <div class="empty-panel"><strong>Rummet er tomt</strong><span>{% if logged %}Tilføj den første udstyrspost via redigeringspanelet.{% else %}Der er ikke registreret udstyr i rummet endnu.{% endif %}</span></div>
+      <div class="empty-panel"><strong>Rummet er tomt</strong><p>{% if logged %}Brug administrationspanelet til at tilføje den første udstyrspost.{% else %}Der er ikke registreret udstyr i rummet endnu.{% endif %}</p></div>
     {% endfor %}
   </div>
   <p id="itemEmptySearch" class="empty-search hidden">Ingen udstyrsposter matcher søgningen.</p>
