@@ -1,25 +1,82 @@
 {% extends "base.html" %}
+{% block title %}SBR Operativ Portal{% endblock %}
 {% block content %}
-<h1>Køretøjer</h1>
+<section class="hero">
+  <div>
+    <span class="eyebrow">SLAGELSE BRAND OG REDNING</span>
+    <h1>SBR <em>Operativ Portal</em></h1>
+    <p>Køretøjer, pakkelister, læringsvideoer og operative dokumenter samlet ét sted.</p>
+  </div>
+  <div class="hero-badge">SBR</div>
+</section>
 
-{% if logged %}
-<form method="post" action="/vehicles/new" class="inline-form">
-  <input name="name" placeholder="Nyt køretøj..." required>
-  <input name="description" placeholder="Beskrivelse (valgfri)">
-  <button type="submit">Opret</button>
-</form>
-{% endif %}
+<section class="quick-grid" aria-label="Hurtig adgang">
+  <a class="quick-card primary" href="#koeretoejer"><span class="quick-icon">▤</span><strong>LOMMEKORT</strong><small>Operative kort og hurtig adgang</small></a>
+  <a class="quick-card" href="#koeretoejer"><span class="quick-icon">🚒</span><strong>KØRETØJER</strong><small>Oversigt over biler, rum og udstyr</small></a>
+  <a class="quick-card" id="videoakademi" href="#"><span class="quick-icon">▶</span><strong>VIDEOAKADEMI</strong><small>Undervisningsvideoer og instruktioner</small><span class="soon">Kommer snart</span></a>
+  <a class="quick-card" id="videnbank" href="#"><span class="quick-icon">▥</span><strong>VIDENBANK</strong><small>SOP'er, instrukser og dokumenter</small><span class="soon">Kommer snart</span></a>
+</section>
 
-<ul class="grid">
-  {% for v in vehicles %}
-    <li class="card">
-      <div class="row between">
-        <b>{{ v.name }}</b>
-        <a class="btn" href="/vehicle/{{ v.id }}">Åbn</a>
-      </div>
-    </li>
-  {% else %}
-    <li>Ingen køretøjer endnu.</li>
-  {% endfor %}
-</ul>
+<section class="scan-banner">
+  <span class="scan-icon">⌗</span>
+  <div><strong>SCAN QR-KODE</strong><small>Gå direkte til et køretøj, rum eller stykke udstyr</small></div>
+  <span class="soon">Næste etape</span>
+</section>
+
+<section id="soeg" class="section-block">
+  <div class="section-heading"><div><span class="eyebrow">HURTIG SØGNING</span><h2>Find køretøj eller udstyr</h2></div></div>
+  <label class="search-box"><span>⌕</span><input id="vehicleSearch" type="search" placeholder="Søg fx M2, højtryksrulle eller motorsav…" autocomplete="off"></label>
+</section>
+
+<section id="koeretoejer" class="section-block">
+  <div class="section-heading">
+    <div><span class="eyebrow">STATION SLAGELSE</span><h2>Køretøjer</h2></div>
+    <span class="count-badge">{{ vehicles|length }} køretøjer</span>
+  </div>
+
+  {% if logged %}
+  <details class="admin-panel">
+    <summary>＋ Opret nyt køretøj</summary>
+    <form method="post" action="/vehicles/new" class="inline-form">
+      <input name="name" placeholder="Kaldesignal og navn" required>
+      <input name="description" placeholder="Kort beskrivelse">
+      <button type="submit">Opret</button>
+    </form>
+  </details>
+  {% endif %}
+
+  <div id="vehicleGrid" class="vehicle-grid">
+    {% for v in vehicles %}
+      <a class="vehicle-card" href="/vehicle/{{ v.id }}" data-search="{{ v.name|lower }}">
+        <div class="vehicle-thumb"><span>🚒</span></div>
+        <div class="vehicle-copy"><strong>{{ v.name }}</strong><small>Se rum, pakkeliste og dokumenter</small><span class="vehicle-tag">KØRETØJ</span></div>
+        <span class="chevron">›</span>
+      </a>
+    {% else %}
+      <div class="empty-state"><span>🚒</span><h3>Ingen køretøjer endnu</h3><p>Log ind som administrator for at oprette stationens første køretøj.</p></div>
+    {% endfor %}
+  </div>
+  <p id="noResults" class="empty-search hidden">Ingen køretøjer matcher din søgning.</p>
+</section>
+
+<section id="favoritter" class="section-block muted-block">
+  <div class="section-heading"><div><span class="eyebrow">PERSONLIG ADGANG</span><h2>Favoritter</h2></div><span class="soon">Næste etape</span></div>
+  <p>Gem de køretøjer, rum og udstyrstyper du bruger mest.</p>
+</section>
+
+<script>
+const search = document.getElementById('vehicleSearch');
+const cards = [...document.querySelectorAll('.vehicle-card')];
+const noResults = document.getElementById('noResults');
+search?.addEventListener('input', () => {
+  const q = search.value.trim().toLowerCase();
+  let visible = 0;
+  cards.forEach(card => {
+    const show = card.dataset.search.includes(q);
+    card.hidden = !show;
+    if (show) visible++;
+  });
+  noResults.classList.toggle('hidden', visible !== 0 || q === '');
+});
+</script>
 {% endblock %}
