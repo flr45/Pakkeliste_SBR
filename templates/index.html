@@ -1,62 +1,79 @@
 {% extends "base.html" %}
 {% block title %}Overblik · SBR Operativ Portal{% endblock %}
 {% block content %}
-<header class="page-header dashboard-header">
+<header class="page-header">
   <div>
-    <p class="kicker">Station Slagelse</p>
+    <div class="eyebrow">SLAGELSE BRAND OG REDNING</div>
     <h1>Operativt overblik</h1>
-    <p class="lead">Hurtig adgang til køretøjer, udstyr, videoer og dokumenter.</p>
+    <p>Hurtig adgang til køretøjer, pakkelister, instruktioner og dokumenter.</p>
   </div>
-  <a class="primary-button" href="/search">Søg i portalen</a>
+  <div class="header-state"><span></span> System klar</div>
 </header>
 
-<section class="stat-row" aria-label="Status">
-  <div class="stat"><span>Køretøjer</span><strong>{{ stats.vehicles }}</strong></div>
-  <div class="stat"><span>Rum</span><strong>{{ stats.places }}</strong></div>
-  <div class="stat"><span>Udstyrsposter</span><strong>{{ stats.items }}</strong></div>
+<form class="command-search" action="/search" method="get">
+  <span>SØG</span>
+  <input name="q" aria-label="Søg" placeholder="Søg efter køretøj, rum eller udstyr" autocomplete="off">
+  <button type="submit">Søg</button>
+</form>
+
+<section class="stats-grid">
+  <a href="/vehicles" class="stat-card"><small>Køretøjer</small><strong>{{ stats.vehicles }}</strong><span>Se samlet oversigt</span></a>
+  <div class="stat-card"><small>Rum og kasser</small><strong>{{ stats.places }}</strong><span>Registrerede placeringer</span></div>
+  <div class="stat-card"><small>Udstyrsposter</small><strong>{{ stats.items }}</strong><span>På tværs af stationen</span></div>
+  <a href="/videos" class="stat-card"><small>Videoakademi</small><strong>→</strong><span>Instruktion og læring</span></a>
+  <a href="/documents" class="stat-card"><small>Dokumenter</small><strong>→</strong><span>Manualer og operative filer</span></a>
 </section>
 
-<section class="dashboard-grid">
-  <div class="panel span-2">
-    <div class="panel-heading">
-      <div><p class="kicker">Genveje</p><h2>Arbejd videre</h2></div>
-    </div>
-    <div class="action-list">
-      <a href="/vehicles"><span class="action-icon">▣</span><span><strong>Køretøjer og pakkelister</strong><small>Åbn køretøj, vælg rum og find udstyr</small></span><b>›</b></a>
-      <a href="/search"><span class="action-icon">⌕</span><span><strong>Global søgning</strong><small>Søg på tværs af køretøjer, rum og udstyr</small></span><b>›</b></a>
-      <a href="/videos"><span class="action-icon">▶</span><span><strong>Videoakademi</strong><small>Instruktionsvideoer og korte gennemgange</small></span><b>›</b></a>
-      <a href="/documents"><span class="action-icon">▤</span><span><strong>Dokumenter</strong><small>Manualer, SOP'er og køretøjsfiler</small></span><b>›</b></a>
-    </div>
+<section class="section">
+  <div class="section-title">
+    <div><small>HURTIG ADGANG</small><h2>Køretøjer</h2></div>
+    <a href="/vehicles">Se alle køretøjer</a>
   </div>
-
-  <aside class="panel">
-    <div class="panel-heading">
-      <div><p class="kicker">Hurtig adgang</p><h2>QR-kode</h2></div>
-    </div>
-    <div class="qr-placeholder" aria-hidden="true"><span>⌗</span></div>
-    <p class="supporting">QR-scanning kobles på, når køretøj-, rum- og udstyrssiderne er færdige.</p>
-    <span class="status-chip">Under opbygning</span>
-  </aside>
-</section>
-
-<section class="section-stack">
-  <div class="section-title-row">
-    <div><p class="kicker">Stationens materiel</p><h2>Køretøjer</h2></div>
-    <a class="text-link" href="/vehicles">Se alle</a>
-  </div>
-
-  <div class="vehicle-list compact">
+  <div class="vehicle-grid">
     {% for vehicle in vehicles %}
-      <a class="vehicle-row" href="/vehicle/{{ vehicle.id }}">
-        <span class="vehicle-symbol">🚒</span>
-        <span class="vehicle-main"><strong>{{ vehicle.name }}</strong><small>{{ vehicle.description or 'Ingen beskrivelse endnu' }}</small></span>
-        <span class="vehicle-meta"><b>{{ vehicle.place_count }}</b><small>rum</small></span>
-        <span class="vehicle-meta"><b>{{ vehicle.item_count }}</b><small>poster</small></span>
-        <span class="row-arrow">›</span>
-      </a>
+      <article class="vehicle-card">
+        <a class="vehicle-card-link" href="/vehicle/{{ vehicle.id }}">
+          <div class="vehicle-card-media placeholder">
+            <span>{{ vehicle.name[:3] | upper }}</span>
+            <span class="status status-operational">Operativ</span>
+          </div>
+          <div class="vehicle-card-body">
+            <div class="vehicle-code">KØRETØJ</div>
+            <h3>{{ vehicle.name }}</h3>
+            <p>{{ vehicle.description or 'Køretøjets beskrivelse er endnu ikke udfyldt.' }}</p>
+            <div class="card-meta"><span>{{ vehicle.place_count }} rum</span><span>{{ vehicle.item_count }} udstyrsposter</span><i>Åbn</i></div>
+          </div>
+        </a>
+        <button class="favorite-star favorite-toggle" aria-label="Gem favorit"
+          data-favorite-type="vehicle" data-favorite-id="{{ vehicle.id }}"
+          data-favorite-title="{{ vehicle.name }}" data-favorite-url="/vehicle/{{ vehicle.id }}">☆</button>
+      </article>
     {% else %}
-      <div class="empty-panel"><strong>Ingen køretøjer endnu</strong><span>Log ind som administrator og opret det første køretøj.</span></div>
+      <div class="empty-panel wide"><strong>Ingen køretøjer oprettet</strong><p>Log ind som administrator for at oprette stationens første køretøj.</p></div>
     {% endfor %}
   </div>
 </section>
+
+<div class="dashboard-columns">
+  <section class="panel">
+    <div class="panel-heading"><div><small>HURTIGVEJE</small><h2>Operative ressourcer</h2></div></div>
+    <div class="quick-list">
+      <a href="/search"><span class="quick-key">S</span><span><strong>Global søgning</strong><small>Find udstyr på tværs af alle køretøjer</small></span><i>Åbn</i></a>
+      <a href="/documents"><span class="quick-key">D</span><span><strong>Dokumentbibliotek</strong><small>Manualer og køretøjsfiler</small></span><i>Åbn</i></a>
+      <a href="/videos"><span class="quick-key">V</span><span><strong>Videoakademi</strong><small>Instruktion og læring</small></span><i>Åbn</i></a>
+    </div>
+  </section>
+
+  <section id="favoritter" class="panel">
+    <div class="panel-heading"><div><small>PERSONLIG ADGANG</small><h2>Dine favoritter</h2></div><button id="clearFavorites" class="text-button">Ryd</button></div>
+    <div id="favoritePreview" class="favorite-grid compact" data-limit="4"></div>
+  </section>
+</div>
+
+{% if logged %}
+<section class="admin-callout">
+  <div><small>ADMINISTRATOR</small><strong>Vedligehold portalens indhold</strong><p>Opret køretøjer, tilføj rum, upload dokumenter og importér pakkelister.</p></div>
+  <div><a class="button secondary" href="/vehicles">Administrér køretøjer</a><a class="button primary" href="/upload">Importér CSV</a></div>
+</section>
+{% endif %}
 {% endblock %}
