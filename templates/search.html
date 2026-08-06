@@ -2,62 +2,49 @@
 {% block title %}Søg · SBR Operativ Portal{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div>
-    <p class="kicker">Global søgning</p>
-    <h1>Find køretøj eller udstyr</h1>
-    <p class="lead">Søg på tværs af køretøjer, rum og pakkelister.</p>
-  </div>
+  <div><div class="eyebrow">GLOBAL SØGNING</div><h1>Find i portalen</h1><p>Søg på tværs af køretøjer, rum og udstyr.</p></div>
 </header>
 
-<form method="get" action="/search" class="global-search-form">
-  <label class="search-field wide"><span>⌕</span><input name="q" value="{{ q }}" placeholder="Eksempel: højtryksrulle, motorsav eller M2" autofocus></label>
-  <button class="primary-button" type="submit">Søg</button>
+<form class="command-search search-page-form" method="get" action="/search">
+  <span>SØG</span><input name="q" value="{{ q }}" placeholder="Fx M2, motorsav eller Højtryksslange (HT)" autofocus autocomplete="off"><button type="submit">Søg</button>
 </form>
 
 {% if q %}
-  <section class="search-summary">
-    <span>Resultater for</span><strong>“{{ q }}”</strong>
-  </section>
+  {% set total = vehicles|length + places|length + items|length %}
+  <div class="search-summary"><span>Resultater for</span><strong>“{{ q }}”</strong><i>{{ total }} fundet</i></div>
 
-  <section class="search-group">
-    <div class="section-title-row"><h2>Udstyr</h2><span class="count-label">{{ items|length }}</span></div>
-    <div class="result-list">
+  <div class="search-layout">
+    <section class="search-group">
+      <div class="section-title compact"><div><small>KØRETØJER</small><h2>{{ vehicles|length }} resultater</h2></div></div>
+      <div class="search-result-list">
+        {% for vehicle in vehicles %}
+          <a class="search-result" href="/vehicle/{{ vehicle.id }}"><span class="result-type">K</span><span><strong>{{ vehicle.name }}</strong><small>{{ vehicle.description or 'Køretøj' }}</small></span><i>Åbn</i></a>
+        {% else %}<div class="empty-inline">Ingen køretøjer matcher.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section class="search-group">
+      <div class="section-title compact"><div><small>RUM OG OMRÅDER</small><h2>{{ places|length }} resultater</h2></div></div>
+      <div class="search-result-list">
+        {% for place in places %}
+          <a class="search-result" href="/vehicle/{{ place.vehicle.id }}/place/{{ place.id }}"><span class="result-type">R</span><span><strong>{{ place.name }}</strong><small>{{ place.vehicle.name }}</small></span><i>Åbn</i></a>
+        {% else %}<div class="empty-inline">Ingen rum matcher.</div>{% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <section class="search-group full-width">
+    <div class="section-title compact"><div><small>UDSTYR</small><h2>{{ items|length }} resultater</h2></div></div>
+    <div class="search-result-list two-columns">
       {% for item in items %}
-        <a class="result-row" href="/item/{{ item.id }}">
-          <span class="result-type">UDSTYR</span>
-          <span><strong>{{ item.name }}</strong><small>{{ item.vehicle.name }} · {{ item.place.name }}{% if item.note %} · {{ item.note }}{% endif %}</small></span>
-          <span class="row-arrow">›</span>
-        </a>
-      {% else %}<div class="empty-inline">Ingen udstyrsmatch.</div>{% endfor %}
-    </div>
-  </section>
-
-  <section class="search-group">
-    <div class="section-title-row"><h2>Rum</h2><span class="count-label">{{ places|length }}</span></div>
-    <div class="result-list">
-      {% for place in places %}
-        <a class="result-row" href="/vehicle/{{ place.vehicle.id }}/place/{{ place.id }}">
-          <span class="result-type">RUM</span>
-          <span><strong>{{ place.name }}</strong><small>{{ place.vehicle.name }}</small></span>
-          <span class="row-arrow">›</span>
-        </a>
-      {% else %}<div class="empty-inline">Ingen rummatch.</div>{% endfor %}
-    </div>
-  </section>
-
-  <section class="search-group">
-    <div class="section-title-row"><h2>Køretøjer</h2><span class="count-label">{{ vehicles|length }}</span></div>
-    <div class="result-list">
-      {% for vehicle in vehicles %}
-        <a class="result-row" href="/vehicle/{{ vehicle.id }}">
-          <span class="result-type">KØRETØJ</span>
-          <span><strong>{{ vehicle.name }}</strong><small>{{ vehicle.description or 'Ingen beskrivelse' }}</small></span>
-          <span class="row-arrow">›</span>
-        </a>
-      {% else %}<div class="empty-inline">Ingen køretøjsmatch.</div>{% endfor %}
+        <a class="search-result" href="/item/{{ item.id }}"><span class="result-type">U</span><span><strong>{{ item.name }}</strong><small>{{ item.vehicle.name }} · {{ item.place.name }}{% if item.note %} · {{ item.note }}{% endif %}</small></span><i>Åbn</i></a>
+      {% else %}<div class="empty-inline">Intet udstyr matcher søgningen.</div>{% endfor %}
     </div>
   </section>
 {% else %}
-  <div class="empty-panel large"><strong>Skriv noget i søgefeltet</strong><span>Søgningen finder både køretøjer, rum og udstyr.</span></div>
+  <section class="search-intro panel">
+    <div><small>SØG SMART</small><h2>Brug de ord du kender fra hverdagen</h2><p>Du kan søge på kaldesignal, køretøjsnavn, rummets navn, udstyr eller noter om placering.</p></div>
+    <div class="search-examples"><span>M2</span><span>HT</span><span>Motorsav</span><span>Venstre side</span></div>
+  </section>
 {% endif %}
 {% endblock %}
