@@ -2,27 +2,24 @@
 {% block title %}Dokumenter · SBR Operativ Portal{% endblock %}
 {% block content %}
 <header class="page-header">
-  <div>
-    <p class="kicker">Videnbank</p>
-    <h1>Dokumenter</h1>
-    <p class="lead">Manualer, SOP'er og køretøjsrelaterede filer samlet ét sted.</p>
-  </div>
+  <div><div class="eyebrow">VIDENBANK</div><h1>Dokumenter</h1><p>Manualer, instrukser, SOP'er og køretøjsrelaterede filer samlet ét sted.</p></div>
+  <span class="count-chip">{{ documents|length }} filer</span>
 </header>
 
-<section class="toolbar">
-  <label class="search-field"><span>⌕</span><input id="documentFilter" type="search" placeholder="Søg efter dokument" autocomplete="off"></label>
-  <span class="count-label">{{ documents|length }} filer</span>
+<section class="filter-panel">
+  <label class="filter-search"><span>SØG</span><input id="documentFilter" type="search" placeholder="Søg efter fil eller køretøj" autocomplete="off"></label>
+  <div class="filter-summary"><strong id="documentVisibleCount">{{ documents|length }}</strong><span>dokumenter vist</span></div>
 </section>
 
-<div id="documentDirectory" class="document-list">
+<div id="documentDirectory" class="document-list directory-list">
   {% for document in documents %}
     <a class="document-row" href="{{ document.path }}" target="_blank" rel="noopener" data-search="{{ document.filename|lower }} {{ document.vehicle.name|lower }}">
-      <span class="document-icon">PDF</span>
-      <span><strong>{{ document.filename }}</strong><small>{{ document.vehicle.name }}</small></span>
-      <span class="row-arrow">↗</span>
+      <span class="document-type">FIL</span>
+      <span class="document-copy"><strong>{{ document.filename }}</strong><small>{{ document.vehicle.name }}</small></span>
+      <span class="document-action">Åbn ↗</span>
     </a>
   {% else %}
-    <div class="empty-panel"><strong>Ingen dokumenter endnu</strong><span>Dokumenter uploades fra det enkelte køretøjs redigeringspanel.</span></div>
+    <div class="empty-panel"><strong>Ingen dokumenter uploadet</strong><p>Dokumenter tilføjes fra administrationspanelet på det enkelte køretøj.</p></div>
   {% endfor %}
 </div>
 <p id="documentEmptySearch" class="empty-search hidden">Ingen dokumenter matcher søgningen.</p>
