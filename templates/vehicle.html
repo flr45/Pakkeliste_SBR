@@ -48,7 +48,7 @@
   <details class="place" id="place-{{ p.id }}">
     <summary>
       <b class="pname" {% if request.session.get('user') %}contenteditable="true" data-pid="{{ p.id }}"{% endif %}>{{ p.name }}</b>
-      <span class="badge">{{ p.items | length }} enheder</span>
+      <span class="badge">{{ p["items"] | length }} enheder</span>
     </summary>
     {% if request.session.get('user') %}
     <form class="inline-form small addItemForm" data-pid="{{ p.id }}">
@@ -59,7 +59,7 @@
     </form>
     {% endif %}
     <ul class="items">
-      {% for it in p.items %}
+      {% for it in p["items"] %}
       <li class="item" data-name="{{ it.name | lower }} {{ it.note | lower }}">
         <div class="row between">
           <div class="wrap">
