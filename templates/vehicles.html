@@ -3,48 +3,50 @@
 {% block content %}
 <header class="page-header">
   <div>
-    <p class="kicker">Stationens materiel</p>
+    <div class="eyebrow">STATION SLAGELSE</div>
     <h1>Køretøjer</h1>
-    <p class="lead">Vælg et køretøj for at se rum, pakkelister og dokumenter.</p>
+    <p>Vælg et køretøj for at se rum, pakkeliste, dokumenter og detaljer.</p>
   </div>
-  {% if logged %}<button class="primary-button" type="button" data-toggle="new-vehicle">Opret køretøj</button>{% endif %}
+  {% if logged %}<button class="button primary" data-toggle-panel="newVehiclePanel">Opret køretøj</button>{% endif %}
 </header>
 
 {% if logged %}
-<section id="new-vehicle" class="inline-create hidden">
-  <form method="post" action="/vehicles/new" class="create-form">
-    <div>
-      <label for="vehicle-name">Navn</label>
-      <input id="vehicle-name" name="name" placeholder="Eksempel: Sprøjte M2" required>
-    </div>
-    <div>
-      <label for="vehicle-description">Beskrivelse</label>
-      <input id="vehicle-description" name="description" placeholder="Kort funktion og anvendelse">
-    </div>
-    <button class="primary-button" type="submit">Opret</button>
+<section id="newVehiclePanel" class="admin-panel hidden-panel">
+  <div class="admin-panel-heading"><div><small>ADMIN</small><h2>Opret nyt køretøj</h2></div><button class="icon-button" data-toggle-panel="newVehiclePanel">Luk</button></div>
+  <form method="post" action="/vehicles/new" class="form-grid create-vehicle-form">
+    <label>Navn<input name="name" placeholder="Fx Sprøjte M2" required></label>
+    <label>Beskrivelse<input name="description" placeholder="Kort beskrivelse af funktion og anvendelse"></label>
+    <button class="button primary" type="submit">Opret køretøj</button>
   </form>
 </section>
 {% endif %}
 
-<section class="toolbar">
-  <label class="search-field"><span>⌕</span><input id="vehicleFilter" type="search" placeholder="Søg efter køretøj" autocomplete="off"></label>
-  <span class="count-label">{{ vehicles|length }} køretøjer</span>
+<section class="filter-panel">
+  <label class="filter-search"><span>SØG</span><input id="vehicleFilter" type="search" placeholder="Søg på køretøjets navn eller beskrivelse" autocomplete="off"></label>
+  <div class="filter-summary"><strong id="vehicleVisibleCount">{{ vehicles|length }}</strong><span>køretøjer vist</span></div>
 </section>
 
-<div id="vehicleDirectory" class="vehicle-list">
+<div id="vehicleDirectory" class="vehicle-grid directory">
   {% for vehicle in vehicles %}
-    <a class="vehicle-row" href="/vehicle/{{ vehicle.id }}" data-search="{{ vehicle.name|lower }} {{ vehicle.description|lower }}">
-      <span class="vehicle-symbol">🚒</span>
-      <span class="vehicle-main">
-        <strong>{{ vehicle.name }}</strong>
-        <small>{{ vehicle.description or 'Ingen beskrivelse endnu' }}</small>
-      </span>
-      <span class="vehicle-meta"><b>{{ vehicle.place_count }}</b><small>rum</small></span>
-      <span class="vehicle-meta"><b>{{ vehicle.item_count }}</b><small>poster</small></span>
-      <span class="row-arrow">›</span>
-    </a>
+    <article class="vehicle-card" data-search="{{ vehicle.name|lower }} {{ vehicle.description|lower }}">
+      <a class="vehicle-card-link" href="/vehicle/{{ vehicle.id }}">
+        <div class="vehicle-card-media placeholder">
+          <span>{{ vehicle.name[:3] | upper }}</span>
+          <span class="status status-operational">Operativ</span>
+        </div>
+        <div class="vehicle-card-body">
+          <div class="vehicle-code">STATION SLAGELSE</div>
+          <h2>{{ vehicle.name }}</h2>
+          <p>{{ vehicle.description or 'Ingen beskrivelse endnu.' }}</p>
+          <div class="card-meta"><span>{{ vehicle.place_count }} rum</span><span>{{ vehicle.item_count }} poster</span><span>{{ vehicle.docs|length }} dokumenter</span><i>Åbn</i></div>
+        </div>
+      </a>
+      <button class="favorite-star favorite-toggle" aria-label="Gem favorit"
+        data-favorite-type="vehicle" data-favorite-id="{{ vehicle.id }}"
+        data-favorite-title="{{ vehicle.name }}" data-favorite-url="/vehicle/{{ vehicle.id }}">☆</button>
+    </article>
   {% else %}
-    <div class="empty-panel"><strong>Ingen køretøjer oprettet</strong><span>Opret det første køretøj for at begynde pakkelisten.</span></div>
+    <div class="empty-panel wide"><strong>Ingen køretøjer oprettet</strong><p>Opret stationens første køretøj via administratorknappen.</p></div>
   {% endfor %}
 </div>
 <p id="vehicleEmptySearch" class="empty-search hidden">Ingen køretøjer matcher søgningen.</p>
