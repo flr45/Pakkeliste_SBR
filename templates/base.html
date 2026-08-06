@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#111416">
+  <meta name="theme-color" content="#111315">
   <title>{% block title %}SBR Operativ Portal{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
   <script defer src="/static/app.js"></script>
 </head>
-<body data-page="{{ page|default('') }}">
+<body data-page="{{ page }}">
 <div class="app-shell">
   <aside class="sidebar">
     <a class="brand" href="/">
@@ -17,43 +17,43 @@
     </a>
 
     <nav class="side-nav" aria-label="Hovedmenu">
-      <a href="/" class="{% if page == 'home' %}active{% endif %}"><span>⌂</span>Overblik</a>
-      <a href="/vehicles" class="{% if page == 'vehicles' %}active{% endif %}"><span>▣</span>Køretøjer</a>
-      <a href="/search" class="{% if page == 'search' %}active{% endif %}"><span>⌕</span>Søg</a>
-      <a href="/videos" class="{% if page == 'videos' %}active{% endif %}"><span>▶</span>Videoakademi</a>
-      <a href="/documents" class="{% if page == 'documents' %}active{% endif %}"><span>▤</span>Dokumenter</a>
+      <a class="{% if page == 'home' %}active{% endif %}" href="/"><span class="nav-key">O</span><span>Overblik</span></a>
+      <a class="{% if page == 'vehicles' %}active{% endif %}" href="/vehicles"><span class="nav-key">K</span><span>Køretøjer</span></a>
+      <a class="{% if page == 'search' %}active{% endif %}" href="/search"><span class="nav-key">S</span><span>Søg i portalen</span></a>
+      <a class="{% if page == 'videos' %}active{% endif %}" href="/videos"><span class="nav-key">V</span><span>Videoakademi</span></a>
+      <a class="{% if page == 'documents' %}active{% endif %}" href="/documents"><span class="nav-key">D</span><span>Dokumenter</span></a>
+      <a href="/#favoritter"><span class="nav-key">F</span><span>Favoritter</span></a>
     </nav>
 
-    <div class="sidebar-foot">
+    <div class="sidebar-bottom">
       {% if logged %}
-        <a href="/upload" class="{% if page == 'admin' %}active{% endif %}"><span>⚙</span>Administration</a>
-        <a href="/logout"><span>↪</span>Log ud</a>
+        <a class="{% if page == 'admin' %}active{% endif %}" href="/upload"><span class="nav-key">A</span><span>Administration</span></a>
+        <a href="/logout"><span class="nav-key">U</span><span>Log ud</span></a>
       {% else %}
-        <a href="/login" class="{% if page == 'login' %}active{% endif %}"><span>♙</span>Log ind</a>
+        <a href="/login"><span class="nav-key">L</span><span>Admin-login</span></a>
       {% endif %}
+      <div class="system-state"><span></span> Portal online</div>
     </div>
   </aside>
 
-  <div class="workspace">
-    <header class="mobile-topbar">
-      <a class="brand" href="/">
-        <span class="brand-mark">SBR</span>
-        <span class="brand-copy"><strong>Operativ Portal</strong><small>Station Slagelse</small></span>
-      </a>
-    </header>
+  <header class="mobile-header">
+    <a class="mobile-brand" href="/"><span>SBR</span><strong>Operativ Portal</strong></a>
+    {% if logged %}<a class="mobile-admin" href="/upload">Admin</a>{% else %}<a class="mobile-admin" href="/login">Log ind</a>{% endif %}
+  </header>
 
-    <main class="content">
-      {% block content %}{% endblock %}
-    </main>
-  </div>
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
 </div>
 
 <nav class="mobile-nav" aria-label="Mobilmenu">
-  <a href="/" class="{% if page == 'home' %}active{% endif %}"><span>⌂</span>Overblik</a>
-  <a href="/vehicles" class="{% if page == 'vehicles' %}active{% endif %}"><span>▣</span>Køretøjer</a>
-  <a href="/search" class="{% if page == 'search' %}active{% endif %}"><span>⌕</span>Søg</a>
-  <a href="/videos" class="{% if page == 'videos' %}active{% endif %}"><span>▶</span>Videoer</a>
-  {% if logged %}<a href="/upload" class="{% if page == 'admin' %}active{% endif %}"><span>⚙</span>Admin</a>{% else %}<a href="/login" class="{% if page == 'login' %}active{% endif %}"><span>♙</span>Profil</a>{% endif %}
+  <a class="{% if page == 'home' %}active{% endif %}" href="/"><span>O</span>Overblik</a>
+  <a class="{% if page == 'vehicles' %}active{% endif %}" href="/vehicles"><span>K</span>Køretøjer</a>
+  <a class="{% if page == 'search' %}active{% endif %}" href="/search"><span>S</span>Søg</a>
+  <a class="{% if page == 'videos' %}active{% endif %}" href="/videos"><span>V</span>Videoer</a>
+  <a class="{% if page == 'documents' %}active{% endif %}" href="/documents"><span>D</span>Dokumenter</a>
 </nav>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
 </body>
 </html>
