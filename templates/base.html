@@ -3,36 +3,57 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#a8070d">
+  <meta name="theme-color" content="#111416">
   <title>{% block title %}SBR Operativ Portal{% endblock %}</title>
   <link rel="stylesheet" href="/static/app.css">
   <script defer src="/static/app.js"></script>
 </head>
-<body>
-<header class="topbar">
-  <a class="brand" href="/" aria-label="SBR Operativ Portal">
-    <span class="brand-mark">SBR</span>
-    <span><strong>Operativ Portal</strong><small>Slagelse Brand og Redning</small></span>
-  </a>
-  <nav class="desktop-nav" aria-label="Hovedmenu">
-    <a href="/">Forside</a>
-    <a href="/#koeretoejer">Køretøjer</a>
-    <a href="/#videoakademi">Videoakademi</a>
-    <a href="/#videnbank">Videnbank</a>
-    {% if logged %}<a href="/upload">Administration</a><a href="/logout">Log ud</a>{% else %}<a href="/login">Log ind</a>{% endif %}
-  </nav>
-</header>
+<body data-page="{{ page|default('') }}">
+<div class="app-shell">
+  <aside class="sidebar">
+    <a class="brand" href="/">
+      <span class="brand-mark">SBR</span>
+      <span class="brand-copy"><strong>Operativ Portal</strong><small>Station Slagelse</small></span>
+    </a>
 
-<main class="container">
-  {% block content %}{% endblock %}
-</main>
+    <nav class="side-nav" aria-label="Hovedmenu">
+      <a href="/" class="{% if page == 'home' %}active{% endif %}"><span>⌂</span>Overblik</a>
+      <a href="/vehicles" class="{% if page == 'vehicles' %}active{% endif %}"><span>▣</span>Køretøjer</a>
+      <a href="/search" class="{% if page == 'search' %}active{% endif %}"><span>⌕</span>Søg</a>
+      <a href="/videos" class="{% if page == 'videos' %}active{% endif %}"><span>▶</span>Videoakademi</a>
+      <a href="/documents" class="{% if page == 'documents' %}active{% endif %}"><span>▤</span>Dokumenter</a>
+    </nav>
+
+    <div class="sidebar-foot">
+      {% if logged %}
+        <a href="/upload" class="{% if page == 'admin' %}active{% endif %}"><span>⚙</span>Administration</a>
+        <a href="/logout"><span>↪</span>Log ud</a>
+      {% else %}
+        <a href="/login" class="{% if page == 'login' %}active{% endif %}"><span>♙</span>Log ind</a>
+      {% endif %}
+    </div>
+  </aside>
+
+  <div class="workspace">
+    <header class="mobile-topbar">
+      <a class="brand" href="/">
+        <span class="brand-mark">SBR</span>
+        <span class="brand-copy"><strong>Operativ Portal</strong><small>Station Slagelse</small></span>
+      </a>
+    </header>
+
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+</div>
 
 <nav class="mobile-nav" aria-label="Mobilmenu">
-  <a href="/" class="active"><span>⌂</span>Forside</a>
-  <a href="/#koeretoejer"><span>🚒</span>Køretøjer</a>
-  <a href="/#soeg"><span>⌕</span>Søg</a>
-  <a href="/#favoritter"><span>☆</span>Favoritter</a>
-  {% if logged %}<a href="/upload"><span>⚙</span>Admin</a>{% else %}<a href="/login"><span>♙</span>Profil</a>{% endif %}
+  <a href="/" class="{% if page == 'home' %}active{% endif %}"><span>⌂</span>Overblik</a>
+  <a href="/vehicles" class="{% if page == 'vehicles' %}active{% endif %}"><span>▣</span>Køretøjer</a>
+  <a href="/search" class="{% if page == 'search' %}active{% endif %}"><span>⌕</span>Søg</a>
+  <a href="/videos" class="{% if page == 'videos' %}active{% endif %}"><span>▶</span>Videoer</a>
+  {% if logged %}<a href="/upload" class="{% if page == 'admin' %}active{% endif %}"><span>⚙</span>Admin</a>{% else %}<a href="/login" class="{% if page == 'login' %}active{% endif %}"><span>♙</span>Profil</a>{% endif %}
 </nav>
 </body>
 </html>

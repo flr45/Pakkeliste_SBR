@@ -1,13 +1,21 @@
 {% extends "base.html" %}
+{% block title %}Administration · SBR Operativ Portal{% endblock %}
 {% block content %}
-<h1>Upload pakkeliste (CSV)</h1>
+<header class="page-header">
+  <div>
+    <p class="kicker">Administration</p>
+    <h1>Importér pakkeliste</h1>
+    <p class="lead">Upload en CSV-fil med køretøjer, rum og udstyrsposter.</p>
+  </div>
+</header>
+
 {% if not logged %}
-<p>Du skal være logget ind.</p>
+  <div class="empty-panel large"><strong>Du skal være logget ind</strong><span>Log ind for at importere eller redigere indhold.</span></div>
 {% else %}
-<form class="card" method="post" enctype="multipart/form-data">
-  <input type="file" name="file" accept=".csv,text/csv" required>
-  <button type="submit">Upload</button>
-  <p class="muted">Understøttede kolonner: Vehicle, Place, Item, Quantity, Note (danske varianter accepteres).</p>
-</form>
+  <form class="card" method="post" enctype="multipart/form-data">
+    <label>CSV-fil<input type="file" name="file" accept=".csv,text/csv" required></label>
+    <button type="submit">Start import</button>
+    <p class="muted">Understøttede kolonner: Vehicle, Place, Item, Quantity og Note. Danske kolonnenavne accepteres også.</p>
+  </form>
 {% endif %}
 {% endblock %}
