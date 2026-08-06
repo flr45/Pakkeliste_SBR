@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Dokumenter · SBR Operativ Portal{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="kicker">Videnbank</p>
+    <h1>Dokumenter</h1>
+    <p class="lead">Manualer, SOP'er og køretøjsrelaterede filer samlet ét sted.</p>
+  </div>
+</header>
+
+<section class="toolbar">
+  <label class="search-field"><span>⌕</span><input id="documentFilter" type="search" placeholder="Søg efter dokument" autocomplete="off"></label>
+  <span class="count-label">{{ documents|length }} filer</span>
+</section>
+
+<div id="documentDirectory" class="document-list">
+  {% for document in documents %}
+    <a class="document-row" href="{{ document.path }}" target="_blank" rel="noopener" data-search="{{ document.filename|lower }} {{ document.vehicle.name|lower }}">
+      <span class="document-icon">PDF</span>
+      <span><strong>{{ document.filename }}</strong><small>{{ document.vehicle.name }}</small></span>
+      <span class="row-arrow">↗</span>
+    </a>
+  {% else %}
+    <div class="empty-panel"><strong>Ingen dokumenter endnu</strong><span>Dokumenter uploades fra det enkelte køretøjs redigeringspanel.</span></div>
+  {% endfor %}
+</div>
+<p id="documentEmptySearch" class="empty-search hidden">Ingen dokumenter matcher søgningen.</p>
+{% endblock %}
