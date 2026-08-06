@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Videoakademi · SBR Operativ Portal{% endblock %}
+{% block content %}
+<header class="page-header">
+  <div>
+    <p class="kicker">Læring</p>
+    <h1>Videoakademi</h1>
+    <p class="lead">Korte instruktioner knyttet til køretøjer og udstyr.</p>
+  </div>
+</header>
+
+<section class="toolbar">
+  <label class="search-field"><span>⌕</span><input type="search" placeholder="Søg efter video" disabled></label>
+  <span class="status-chip">Klar til indhold</span>
+</section>
+
+<div class="content-grid three">
+  <article class="content-card"><span class="content-card-icon">▶</span><strong>Køretøjer</strong><p>Gennemgang af betjening og opbygning.</p></article>
+  <article class="content-card"><span class="content-card-icon">▶</span><strong>Udstyr</strong><p>Korte instruktioner til stationens materiel.</p></article>
+  <article class="content-card"><span class="content-card-icon">▶</span><strong>Procedurer</strong><p>Trin-for-trin videoer til udvalgte opgaver.</p></article>
+</div>
+
+<div class="empty-panel large"><strong>Ingen videoer uploadet endnu</strong><span>Datamodellen til videoer bygges i næste etape. Siden og navigationen er nu klar.</span></div>
+{% endblock %}
