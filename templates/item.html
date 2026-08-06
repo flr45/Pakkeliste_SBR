@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}{{ item.name }} · SBR Operativ Portal{% endblock %}
+{% block content %}
+<nav class="breadcrumbs" aria-label="Brødkrummer">
+  <a href="/vehicles">Køretøjer</a><span>›</span>
+  <a href="/vehicle/{{ item.vehicle.id }}">{{ item.vehicle.name }}</a><span>›</span>
+  <a href="/vehicle/{{ item.vehicle.id }}/place/{{ item.place.id }}">{{ item.place.name }}</a><span>›</span>
+  <strong>{{ item.name }}</strong>
+</nav>
+
+<header class="page-header detail-header">
+  <div>
+    <p class="kicker">Udstyr</p>
+    <h1>{{ item.name }}</h1>
+    <p class="lead">Placeret i {{ item.place.name }} på {{ item.vehicle.name }}.</p>
+  </div>
+  <a class="secondary-button" href="/vehicle/{{ item.vehicle.id }}/place/{{ item.place.id }}">Tilbage til rummet</a>
+</header>
+
+<section class="detail-grid">
+  <div class="equipment-visual panel">
+    {% if item.photo_path %}
+      <img src="{{ item.photo_path }}" alt="{{ item.name }}">
+    {% else %}
+      <div class="equipment-placeholder"><span>▦</span><small>Intet billede endnu</small></div>
+    {% endif %}
+    {% if logged %}
+      <label class="upload-button">Upload billede<input id="itemPhotoInput" type="file" data-item-id="{{ item.id }}" hidden></label>
+    {% endif %}
+  </div>
+
+  <div class="panel equipment-info">
+    <div class="info-row"><span>Placering</span><strong>{{ item.vehicle.name }} · {{ item.place.name }}</strong></div>
+    <div class="info-row"><span>Antal</span><strong>{{ item.quantity }}</strong></div>
+    <div class="info-row"><span>Beskrivelse</span><strong>{{ item.note or 'Ingen beskrivelse tilføjet endnu' }}</strong></div>
+  </div>
+</section>
+
+<section class="tab-panel panel">
+  <div class="tab-strip" role="tablist">
+    <button class="active" type="button">Oversigt</button>
+    <button type="button" disabled>Video</button>
+    <button type="button" disabled>Dokumenter</button>
+  </div>
+  <div class="tab-content">
+    <h2>Om udstyret</h2>
+    <p>{{ item.note or 'Denne side er klar til at få tilføjet anvendelse, specifikationer, instruktioner og relaterede dokumenter i næste udviklingsetape.' }}</p>
+  </div>
+</section>
+{% endblock %}
