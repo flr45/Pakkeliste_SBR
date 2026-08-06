@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}{{ place.name }} · {{ place.vehicle.name }}{% endblock %}
+{% block content %}
+<nav class="breadcrumbs" aria-label="Brødkrummer">
+  <a href="/vehicles">Køretøjer</a><span>›</span>
+  <a href="/vehicle/{{ place.vehicle.id }}">{{ place.vehicle.name }}</a><span>›</span>
+  <strong>{{ place.name }}</strong>
+</nav>
+
+<header class="page-header detail-header">
+  <div>
+    <p class="kicker">{{ place.vehicle.name }}</p>
+    <h1>{{ place.name }}</h1>
+    <p class="lead">{{ place["items"]|length }} registrerede udstyrsposter i dette rum.</p>
+  </div>
+  <a class="secondary-button" href="/vehicle/{{ place.vehicle.id }}">Tilbage til køretøjet</a>
+</header>
+
+{% if logged %}
+<details class="admin-drawer">
+  <summary>Redigér rum og indhold</summary>
+  <div class="admin-drawer-body">
+    <form id="renamePlaceForm" class="form-row" data-place-id="{{ place.id }}">
+      <input name="name" value="{{ place.name }}" required>
+      <button class="secondary-button" type="submit">Gem navn</button>
+    </form>
+    <form id="addItemForm" class="create-form compact-form" data-place-id="{{ place.id }}">
+      <div><label>Udstyr</label><input name="name" placeholder="Navn på udstyr" required></div>
+      <div><label>Antal</label><input name="quantity" type="number" min="1" value="1" required></div>
+      <div><label>Note</label><input name="note" placeholder="Valgfri note"></div>
+      <button class="primary-button" type="submit">Tilføj</button>
+    </form>
+  </div>
+</details>
+{% endif %}
+
+<section class="room-photo-panel">
+  <div class="room-photo-placeholder"><span>{{ place.name }}</span><small>Rumfoto tilføjes i en senere etape</small></div>
+</section>
+
+<section class="section-stack">
+  <div class="section-title-row">
+    <div><p class="kicker">Pakkeliste</p><h2>Indhold</h2></div>
+    <span class="count-label">{{ place["items"]|length }} poster</span>
+  </div>
+
+  <label class="search-field wide"><span>⌕</span><input id="itemFilter" type="search" placeholder="Søg i dette rum" autocomplete="off"></label>
+
+  <div id="itemDirectory" class="item-directory">
+    {% for item in place["items"] %}
+      <a class="item-row" href="/item/{{ item.id }}" data-search="{{ item.name|lower }} {{ item.note|lower }}">
+        {% if item.photo_path %}<img src="{{ item.photo_path }}" alt="{{ item.name }}">{% else %}<span class="item-placeholder">▦</span>{% endif %}
+        <span class="item-main"><strong>{{ item.name }}</strong><small>{{ item.note or 'Ingen note' }}</small></span>
+        <span class="quantity-chip">× {{ item.quantity }}</span>
+        <span class="row-arrow">›</span>
+      </a>
+    {% else %}
+      <div class="empty-panel"><strong>Rummet er tomt</strong><span>{% if logged %}Tilføj den første udstyrspost via redigeringspanelet.{% else %}Der er ikke registreret udstyr i rummet endnu.{% endif %}</span></div>
+    {% endfor %}
+  </div>
+  <p id="itemEmptySearch" class="empty-search hidden">Ingen udstyrsposter matcher søgningen.</p>
+</section>
+{% endblock %}
